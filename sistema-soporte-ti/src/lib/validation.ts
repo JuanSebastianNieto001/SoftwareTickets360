@@ -15,6 +15,6 @@ export const cerrarTicketSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  correo: z.string().trim().email("Correo invalido"),
+  correo: z.string().trim().min(1, "El usuario es obligatorio").max(150),
   password: z.string().min(1, "La contrasena es obligatoria"),
 });

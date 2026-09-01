@@ -44,9 +44,9 @@ export default function LoginForm({ next }: { next?: string }) {
       {error && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
       <div>
         <label className="label" htmlFor="correo">
-          Correo
+          Usuario
         </label>
-        <input className="input" id="correo" name="correo" type="email" required autoFocus />
+        <input className="input" id="correo" name="correo" type="text" required autoFocus autoComplete="username" />
       </div>
       <div>
         <label className="label" htmlFor="password">
