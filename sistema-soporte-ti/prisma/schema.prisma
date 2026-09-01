@@ -1,0 +1,67 @@
+// Esquema de base de datos del Sistema de Gestion de Soportes TI.
+//
+// Por defecto usa SQLite (archivo local, cero configuracion, gratis).
+// Para pasar a Supabase/PostgreSQL en produccion:
+//   1) cambia provider = "postgresql"
+//   2) pon la connection string de Supabase en DATABASE_URL (.env)
+//   3) corre: npx prisma migrate deploy
+//
+// Nota: estado, rol y prioridad se guardan como texto (String) en vez de
+// enum nativo para que el mismo esquema funcione igual en SQLite (dev,
+// no soporta enums) y en PostgreSQL/Supabase (produccion). Los valores
+// permitidos se validan en la capa de aplicacion (src/lib/ticket.ts y
+// src/lib/validation.ts).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  nombre       String
+  correo       String   @unique
+  area         String?
+  rol          String   @default("ADMIN") // ADMIN
+  passwordHash String
+  creadoEn     DateTime @default(now())
+
+  ticketsAtendidos Ticket[] @relation("AdminTickets")
+}
+
+model Ticket {
+  id                 String    @id @default(cuid())
+  codigoTicket       String    @unique
+  nombreSolicitante  String
+  correo             String
+  area               String
+  categoria          String
+  descripcion        String
+  estado             String    @default("PENDIENTE") // PENDIENTE | EN_PROCESO | CERRADO
+  prioridad          String    @default("MEDIA")      // BAJA | MEDIA | ALTA
+
+  fechaCreacion      DateTime  @default(now())
+  fechaInicio        DateTime?
+  fechaCierre        DateTime?
+
+  // tiempos en minutos, calculados al cambiar de estado
+  tiempoLlegada      Int?
+  tiempoResolucion   Int?
+  tiempoTotal        Int?
+
+  solucion           String?
+
+  adminId            String?
+  admin              User?     @relation("AdminTickets", fields: [adminId], references: [id])
+
+  creadoEn           DateTime  @default(now())
+  actualizadoEn      DateTime  @updatedAt
+
+  @@index([estado])
+  @@index([fechaCreacion])
+  @@index([fechaCierre])
+}
