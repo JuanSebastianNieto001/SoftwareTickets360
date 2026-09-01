@@ -36,3 +36,22 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ tickets });
 }
+
+// DELETE /api/admin/tickets?confirmacion=ELIMINAR — borra TODOS los tickets de la base de datos.
+// Exige el parametro de confirmacion exacto para evitar borrados accidentales.
+export async function DELETE(request: NextRequest) {
+  const confirmacion = request.nextUrl.searchParams.get("confirmacion");
+  if (confirmacion !== "ELIMINAR") {
+    return NextResponse.json(
+      { error: "Falta la confirmacion. Agrega ?confirmacion=ELIMINAR a la solicitud." },
+      { status: 400 }
+    );
+  }
+
+  const resultado = await prisma.ticket.deleteMany({});
+
+  return NextResponse.json({
+    eliminados: resultado.count,
+    mensaje: `Se eliminaron ${resultado.count} tickets.`,
+  });
+}

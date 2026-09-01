@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EstadoBadge from "@/components/EstadoBadge";
 import PrioridadBadge from "@/components/PrioridadBadge";
+import { IconTrash } from "@/components/icons";
 import { formatearMinutos } from "@/lib/ticket";
 
 const INTERVALO_ACTUALIZACION_MS = 5000;
@@ -125,6 +126,43 @@ export default function AdminDashboard() {
     }
   }
 
+  async function eliminarTicket(id: string, codigo: string) {
+    const confirmado = window.confirm(
+      `¿Eliminar el ticket ${codigo}? Esta accion no se puede deshacer.`
+    );
+    if (!confirmado) return;
+
+    setProcesando(id);
+    try {
+      const res = await fetch(`/api/admin/tickets/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      await cargar();
+    } catch {
+      setError(`No se pudo eliminar el ticket ${codigo}.`);
+    } finally {
+      setProcesando(null);
+    }
+  }
+
+  async function vaciarBaseDeDatos() {
+    const escrito = window.prompt(
+      `Esto elimina TODOS los tickets (${tickets.length} en este momento) de forma permanente.\n\nEscribe ELIMINAR para confirmar:`
+    );
+    if (escrito !== "ELIMINAR") return;
+
+    setProcesando("__vaciar__");
+    try {
+      const res = await fetch(`/api/admin/tickets?confirmacion=ELIMINAR`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await cargar();
+    } catch {
+      setError("No se pudo vaciar la base de datos.");
+    } finally {
+      setProcesando(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-3 gap-3">
@@ -168,6 +206,14 @@ export default function AdminDashboard() {
         >
           Exportar Excel de hoy
         </a>
+        <button
+          onClick={vaciarBaseDeDatos}
+          disabled={procesando === "__vaciar__"}
+          className="btn-danger"
+        >
+          <IconTrash className="h-4 w-4" />
+          {procesando === "__vaciar__" ? "Vaciando..." : "Vaciar base de datos"}
+        </button>
       </div>
 
       {error && (
@@ -219,6 +265,15 @@ export default function AdminDashboard() {
                       {ticketAbierto === t.id ? "Cancelar" : "Cerrar ticket"}
                     </button>
                   )}
+                  <button
+                    onClick={() => eliminarTicket(t.id, t.codigoTicket)}
+                    disabled={procesando === t.id}
+                    title="Eliminar ticket"
+                    aria-label="Eliminar ticket"
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                  >
+                    <IconTrash className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
 

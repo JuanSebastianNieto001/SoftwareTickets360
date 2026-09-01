@@ -1,6 +1,5 @@
 import LoginForm from "@/components/LoginForm";
-import VozLogo from "@/components/VozLogo";
-import { IconShield } from "@/components/icons";
+import HeroLogo from "@/components/HeroLogo";
 
 export default function AdminLoginPage({
   searchParams,
@@ -11,15 +10,9 @@ export default function AdminLoginPage({
     <div className="voz-hero relative isolate flex min-h-screen flex-col overflow-hidden">
       <div className="voz-dots pointer-events-none absolute inset-0 opacity-30" />
 
-      <header className="relative mx-auto w-full max-w-5xl px-4 py-5 sm:px-6">
-        <VozLogo />
-      </header>
-
-      <main className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 pb-16">
+      <main className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-10">
         <div className="mb-6 text-center">
-          <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white">
-            <IconShield className="h-6 w-6" />
-          </span>
+          <HeroLogo size={84} />
           <h1 className="font-display text-2xl font-extrabold tracking-tight text-white">
             Panel del administrador
           </h1>

@@ -69,12 +69,12 @@ export default function TicketForm() {
   }
 
   return (
-    <form onSubmit={enviar} className="card space-y-4 p-6">
+    <form onSubmit={enviar} className="card space-y-3 p-5">
       {estado.paso === "error" && (
         <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{estado.mensaje}</div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor="nombreSolicitante">
             <IconUser className="h-4 w-4 text-brand-500" />
@@ -142,7 +142,7 @@ export default function TicketForm() {
           Descripcion del problema
         </label>
         <textarea
-          className="input min-h-[120px]"
+          className="input min-h-[70px]"
           id="descripcion"
           name="descripcion"
           required
