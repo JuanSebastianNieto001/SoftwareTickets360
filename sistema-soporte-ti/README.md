@@ -10,12 +10,14 @@ Implementa la propuesta descrita en `../PROPUESTA_SISTEMA_SOPORTE_TI/`.
 ## Stack
 
 - **Next.js 14** (App Router) + **TypeScript** + **Tailwind CSS**
-- **Prisma ORM** sobre **SQLite** en desarrollo (archivo local, cero costo,
-  cero configuracion). El esquema esta listo para migrar a **PostgreSQL /
-  Supabase** en produccion sin cambiar una sola linea de codigo de la app.
+- **Prisma ORM** sobre **PostgreSQL en Supabase**. Prisma habla directo con
+  la base de datos de Supabase mediante su connection string — la app no usa
+  el cliente `@supabase-js`/Auth de Supabase, tiene su propio sistema de
+  sesion (mas simple porque solo hay un rol: administrador).
 - Autenticacion propia por cookie firmada (JWT con `jose`) + `bcryptjs` para
-  contrasenas. Un solo rol: administrador.
+  contrasenas.
 - `exceljs` para la exportacion diaria de tickets cerrados a Excel.
+- Desplegado en **Vercel** (plan gratuito).
 
 ## Reglas de negocio implementadas
 
@@ -39,13 +41,13 @@ Implementa la propuesta descrita en `../PROPUESTA_SISTEMA_SOPORTE_TI/`.
 
 ## Puesta en marcha (desarrollo local)
 
-Requisitos: Node.js 18+.
+Requisitos: Node.js 18+ y un proyecto de Supabase (gratuito).
 
 ```bash
 cd sistema-soporte-ti
 npm install
-cp .env.example .env      # y ajusta AUTH_SECRET / credenciales del admin
-npx prisma migrate dev    # crea prisma/dev.db con el esquema
+cp .env.example .env      # y pon DATABASE_URL, DIRECT_URL, AUTH_SECRET, credenciales del admin
+npx prisma migrate dev --name init   # crea las tablas en Supabase
 npm run seed               # crea el usuario administrador + un ticket de ejemplo
 npm run dev
 ```
@@ -57,36 +59,42 @@ Abre `http://localhost:3000`:
 - Panel administrador: `http://localhost:3000/admin/login`
   (credenciales definidas en `.env`: `ADMIN_EMAIL` / `ADMIN_PASSWORD`)
 
-## Variables de entorno (`.env`)
+## Variables de entorno
 
 | Variable | Descripcion |
 |---|---|
-| `DATABASE_URL` | Cadena de conexion de la base de datos. `file:./dev.db` para SQLite local. |
-| `AUTH_SECRET` | Cadena larga y aleatoria usada para firmar la sesion del admin. Cambiala en produccion. |
+| `DATABASE_URL` | Connection string agrupada de Supabase (pooler, puerto 6543). La usa la app en runtime. |
+| `DIRECT_URL` | Connection string directa de Supabase (puerto 5432). La usa Prisma solo para migraciones. |
+| `AUTH_SECRET` | Cadena larga y aleatoria usada para firmar la sesion del admin. Distinta en cada entorno. |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NOMBRE` | Usadas solo por `npm run seed` para crear/actualizar el usuario administrador. |
 
-## Pasar a Supabase / PostgreSQL en produccion
-
-1. Crea un proyecto gratuito en [supabase.com](https://supabase.com).
-2. En `prisma/schema.prisma` cambia:
-   ```prisma
-   datasource db {
-     provider = "postgresql"
-     url      = env("DATABASE_URL")
-   }
-   ```
-3. Copia la *connection string* desde Supabase (Settings → Database) a
-   `DATABASE_URL` en tus variables de entorno de produccion.
-4. Corre `npx prisma migrate deploy` para crear las tablas.
-5. Corre `npm run seed` una vez para crear el administrador.
-6. Despliega en [Vercel](https://vercel.com) (plan gratuito): conecta el
-   repositorio, configura las variables de entorno anteriores y listo.
+Ambas connection strings de Supabase estan en el dashboard del proyecto:
+**Project Settings → Database → Connection string** (pestaña "Nodejs" /
+formato URI). Ahi mismo puedes resetear la contrasena de la base de datos si
+la perdiste.
 
 Los campos `estado`, `rol` y `prioridad` se guardan como texto (no como enum
-nativo) precisamente para que el esquema sea compatible tanto con SQLite
-(desarrollo) como con PostgreSQL (produccion) sin tocar nada. Los valores
-permitidos se validan en la aplicacion (`src/lib/ticket.ts`,
-`src/lib/validation.ts`).
+nativo de PostgreSQL) para simplificar; los valores permitidos se validan en
+la aplicacion (`src/lib/ticket.ts`, `src/lib/validation.ts`).
+
+## Desplegar en Vercel
+
+1. En [vercel.com/new](https://vercel.com/new), importa el repositorio de
+   GitHub (`SoftwareTickets360`), con **Root Directory = `sistema-soporte-ti`**
+   (el repo tiene el proyecto en un subdirectorio).
+2. En Environment Variables, agrega las mismas 6 variables de la tabla de
+   arriba (con los valores reales de Supabase y un `AUTH_SECRET` distinto al
+   de desarrollo).
+3. Deploy. Vercel detecta Next.js automaticamente; el script `postinstall`
+   corre `prisma generate` en cada build.
+4. Antes del primer uso en produccion, corre una vez desde tu maquina (con
+   `DATABASE_URL`/`DIRECT_URL` de produccion en tu `.env`):
+   ```bash
+   npx prisma migrate deploy
+   npm run seed
+   ```
+   (las migraciones no se corren automaticamente en el build de Vercel, para
+   evitar aplicarlas por accidente en cada deploy).
 
 ## Estructura del proyecto
 

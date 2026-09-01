@@ -1,24 +1,26 @@
 // Esquema de base de datos del Sistema de Gestion de Soportes TI.
 //
-// Por defecto usa SQLite (archivo local, cero configuracion, gratis).
-// Para pasar a Supabase/PostgreSQL en produccion:
-//   1) cambia provider = "postgresql"
-//   2) pon la connection string de Supabase en DATABASE_URL (.env)
-//   3) corre: npx prisma migrate deploy
+// Produccion: PostgreSQL en Supabase.
+//   DATABASE_URL = connection string agrupada (pooler, puerto 6543) que usa la app en runtime.
+//   DIRECT_URL   = connection string directa (puerto 5432) que usa Prisma solo para migraciones.
+// Ambas se obtienen en el dashboard de Supabase: Project Settings > Database > Connection string.
+//
+// Para desarrollo local sin Supabase, cambia provider a "sqlite" y usa DATABASE_URL="file:./dev.db"
+// (ver README para el detalle de ambos modos).
 //
 // Nota: estado, rol y prioridad se guardan como texto (String) en vez de
-// enum nativo para que el mismo esquema funcione igual en SQLite (dev,
-// no soporta enums) y en PostgreSQL/Supabase (produccion). Los valores
-// permitidos se validan en la capa de aplicacion (src/lib/ticket.ts y
-// src/lib/validation.ts).
+// enum nativo porque el proyecto tambien puede correr sobre SQLite en
+// desarrollo (que no soporta enums nativos). Los valores permitidos se
+// validan en la capa de aplicacion (src/lib/ticket.ts y src/lib/validation.ts).
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
