@@ -49,7 +49,7 @@
     @apply badge bg-emerald-100 text-emerald-800;
   }
   .voz-hero {
-    background-image: radial-gradient(120% 140% at 15% 0%, #1a37b0 0%, #0f1a52 55%, #0a1440 100%);
+    background-image: radial-gradient(120% 140% at 15% 0%, #064c93 0%, #032140 55%, #021427 100%);
   }
   .voz-dots {
     background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1.5px);

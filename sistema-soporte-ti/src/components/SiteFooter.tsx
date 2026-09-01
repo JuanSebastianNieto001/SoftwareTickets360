@@ -16,7 +16,7 @@ export default function SiteFooter() {
             <span
               className={`flex h-11 w-11 items-center justify-center rounded-full border ${
                 destacado
-                  ? "border-transparent bg-sky-400 text-brand-950"
+                  ? "border-transparent bg-brand-400 text-brand-950"
                   : "border-brand-700 text-brand-200"
               }`}
             >
