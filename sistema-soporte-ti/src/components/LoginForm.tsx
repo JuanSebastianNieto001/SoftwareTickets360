@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { IconUser, IconLock } from "@/components/icons";
 
 export default function LoginForm({ next }: { next?: string }) {
   const router = useRouter();
@@ -45,12 +46,14 @@ export default function LoginForm({ next }: { next?: string }) {
       {error && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
       <div>
         <label className="label" htmlFor="correo">
+          <IconUser className="h-4 w-4 text-brand-500" />
           Usuario
         </label>
         <input className="input" id="correo" name="correo" type="text" required autoFocus autoComplete="username" />
       </div>
       <div>
         <label className="label" htmlFor="password">
+          <IconLock className="h-4 w-4 text-brand-500" />
           Contrasena
         </label>
         <div className="relative">

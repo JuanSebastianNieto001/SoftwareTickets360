@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { AREAS, CATEGORIAS, PRIORIDADES } from "@/lib/ticket";
+import { IconUser, IconPin, IconTag, IconFlag, IconMessage, IconSend } from "@/components/icons";
 
 type Estado =
   | { paso: "formulario" }
@@ -76,12 +77,21 @@ export default function TicketForm() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor="nombreSolicitante">
+            <IconUser className="h-4 w-4 text-brand-500" />
             Nombre completo
           </label>
-          <input className="input" id="nombreSolicitante" name="nombreSolicitante" required minLength={3} />
+          <input
+            className="input"
+            id="nombreSolicitante"
+            name="nombreSolicitante"
+            placeholder="Ingresa tu nombre completo"
+            required
+            minLength={3}
+          />
         </div>
         <div>
           <label className="label" htmlFor="area">
+            <IconPin className="h-4 w-4 text-brand-500" />
             Area
           </label>
           <select className="input" id="area" name="area" required defaultValue="">
@@ -97,6 +107,7 @@ export default function TicketForm() {
         </div>
         <div>
           <label className="label" htmlFor="categoria">
+            <IconTag className="h-4 w-4 text-brand-500" />
             Categoria del problema
           </label>
           <select className="input" id="categoria" name="categoria" required defaultValue="">
@@ -110,8 +121,9 @@ export default function TicketForm() {
             ))}
           </select>
         </div>
-        <div className="sm:col-span-2">
+        <div>
           <label className="label" htmlFor="prioridad">
+            <IconFlag className="h-4 w-4 text-brand-500" />
             Prioridad
           </label>
           <select className="input" id="prioridad" name="prioridad" defaultValue="MEDIA">
@@ -126,6 +138,7 @@ export default function TicketForm() {
 
       <div>
         <label className="label" htmlFor="descripcion">
+          <IconMessage className="h-4 w-4 text-brand-500" />
           Descripcion del problema
         </label>
         <textarea
@@ -139,6 +152,7 @@ export default function TicketForm() {
       </div>
 
       <button type="submit" className="btn-primary w-full" disabled={estado.paso === "enviando"}>
+        <IconSend className="h-4 w-4" />
         {estado.paso === "enviando" ? "Enviando..." : "Crear ticket"}
       </button>
     </form>

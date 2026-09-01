@@ -2,6 +2,7 @@
 
 import { useState, FormEvent, useEffect } from "react";
 import EstadoBadge from "@/components/EstadoBadge";
+import PrioridadBadge from "@/components/PrioridadBadge";
 import { formatearMinutos } from "@/lib/ticket";
 
 type Ticket = {
@@ -94,7 +95,7 @@ export default function SeguimientoBuscador({ codigoInicial }: { codigoInicial?:
             </div>
             <div>
               <dt className="text-slate-500">Prioridad</dt>
-              <dd className="font-medium">{ticket.prioridad}</dd>
+              <dd className="mt-0.5"><PrioridadBadge prioridad={ticket.prioridad} /></dd>
             </div>
           </dl>
 
