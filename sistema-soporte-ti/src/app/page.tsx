@@ -1,14 +1,11 @@
 import TicketForm from "@/components/TicketForm";
-import SiteHeader from "@/components/SiteHeader";
-import SiteFooter from "@/components/SiteFooter";
+import HeroLogo from "@/components/HeroLogo";
 import { IconHeart, IconPin, IconCube } from "@/components/icons";
 
 export default function InicioPage() {
   return (
     <div className="flex min-h-screen flex-col">
-      <SiteHeader />
-
-      <section className="voz-hero relative isolate overflow-hidden pb-28 pt-14 sm:pb-32">
+      <section className="voz-hero relative isolate overflow-hidden pb-28 pt-16 sm:pb-32">
         <div className="voz-dots pointer-events-none absolute inset-0 opacity-40" />
 
         <span className="pointer-events-none absolute right-[8%] top-10 hidden h-14 w-14 animate-float items-center justify-center rounded-full border border-white/20 bg-white/5 text-white/70 backdrop-blur-sm sm:flex">
@@ -22,6 +19,7 @@ export default function InicioPage() {
         </span>
 
         <div className="relative mx-auto max-w-2xl px-4 text-center">
+          <HeroLogo />
           <h1 className="text-balance font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
             Soporte Tecnico Interno
           </h1>
@@ -44,8 +42,6 @@ export default function InicioPage() {
           </a>
         </div>
       </main>
-
-      <SiteFooter />
     </div>
   );
 }

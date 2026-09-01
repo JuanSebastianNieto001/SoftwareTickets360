@@ -1,6 +1,5 @@
 import SeguimientoBuscador from "@/components/SeguimientoBuscador";
-import SiteHeader from "@/components/SiteHeader";
-import SiteFooter from "@/components/SiteFooter";
+import HeroLogo from "@/components/HeroLogo";
 
 export default function SeguimientoPage({
   searchParams,
@@ -9,11 +8,10 @@ export default function SeguimientoPage({
 }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <SiteHeader />
-
-      <section className="voz-hero relative isolate overflow-hidden pb-20 pt-14">
+      <section className="voz-hero relative isolate overflow-hidden pb-20 pt-16">
         <div className="voz-dots pointer-events-none absolute inset-0 opacity-40" />
         <div className="relative mx-auto max-w-xl px-4 text-center">
+          <HeroLogo size={88} />
           <h1 className="font-display text-3xl font-extrabold tracking-tight text-white">
             Consultar estado del ticket
           </h1>
@@ -32,8 +30,6 @@ export default function SeguimientoPage({
           </a>
         </div>
       </main>
-
-      <SiteFooter />
     </div>
   );
 }
