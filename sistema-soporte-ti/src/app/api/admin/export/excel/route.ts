@@ -34,7 +34,6 @@ export async function GET(request: NextRequest) {
   hoja.columns = [
     { header: "Codigo", key: "codigo", width: 14 },
     { header: "Solicitante", key: "solicitante", width: 26 },
-    { header: "Correo", key: "correo", width: 28 },
     { header: "Area", key: "area", width: 18 },
     { header: "Categoria", key: "categoria", width: 20 },
     { header: "Prioridad", key: "prioridad", width: 12 },
@@ -62,7 +61,6 @@ export async function GET(request: NextRequest) {
     hoja.addRow({
       codigo: t.codigoTicket,
       solicitante: t.nombreSolicitante,
-      correo: t.correo,
       area: t.area,
       categoria: t.categoria,
       prioridad: t.prioridad,

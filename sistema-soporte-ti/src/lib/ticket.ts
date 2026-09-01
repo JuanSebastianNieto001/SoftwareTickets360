@@ -30,6 +30,7 @@ export function formatearMinutos(min: number | null | undefined): string {
 }
 
 export const ESTADOS = ["PENDIENTE", "EN_PROCESO", "CERRADO"] as const;
+export const AREAS = ["Asesor", "Administrativos"] as const;
 export const CATEGORIAS = [
   "Hardware",
   "Software",

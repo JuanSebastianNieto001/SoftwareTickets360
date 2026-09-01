@@ -39,8 +39,7 @@ model Ticket {
   id                 String    @id @default(cuid())
   codigoTicket       String    @unique
   nombreSolicitante  String
-  correo             String
-  area               String
+  area               String    // Asesor | Administrativos
   categoria          String
   descripcion        String
   estado             String    @default("PENDIENTE") // PENDIENTE | EN_PROCESO | CERRADO

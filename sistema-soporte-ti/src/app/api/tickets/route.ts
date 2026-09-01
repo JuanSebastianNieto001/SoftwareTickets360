@@ -25,7 +25,6 @@ export async function POST(request: NextRequest) {
     data: {
       codigoTicket,
       nombreSolicitante: data.nombreSolicitante,
-      correo: data.correo,
       area: data.area,
       categoria: data.categoria,
       descripcion: data.descripcion,

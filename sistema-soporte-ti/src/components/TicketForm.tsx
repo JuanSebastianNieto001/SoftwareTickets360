@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import { CATEGORIAS, PRIORIDADES } from "@/lib/ticket";
+import { AREAS, CATEGORIAS, PRIORIDADES } from "@/lib/ticket";
 
 type Estado =
   | { paso: "formulario" }
@@ -19,7 +19,6 @@ export default function TicketForm() {
     const form = new FormData(e.currentTarget);
     const payload = {
       nombreSolicitante: String(form.get("nombreSolicitante") ?? ""),
-      correo: String(form.get("correo") ?? ""),
       area: String(form.get("area") ?? ""),
       categoria: String(form.get("categoria") ?? ""),
       prioridad: String(form.get("prioridad") ?? "MEDIA"),
@@ -82,16 +81,19 @@ export default function TicketForm() {
           <input className="input" id="nombreSolicitante" name="nombreSolicitante" required minLength={3} />
         </div>
         <div>
-          <label className="label" htmlFor="correo">
-            Correo electronico
-          </label>
-          <input className="input" id="correo" name="correo" type="email" required />
-        </div>
-        <div>
           <label className="label" htmlFor="area">
-            Area o departamento
+            Area
           </label>
-          <input className="input" id="area" name="area" required minLength={2} />
+          <select className="input" id="area" name="area" required defaultValue="">
+            <option value="" disabled>
+              Selecciona una opcion
+            </option>
+            {AREAS.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="label" htmlFor="categoria">

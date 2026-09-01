@@ -1,10 +1,9 @@
 import { z } from "zod";
-import { CATEGORIAS, PRIORIDADES } from "@/lib/ticket";
+import { AREAS, CATEGORIAS, PRIORIDADES } from "@/lib/ticket";
 
 export const crearTicketSchema = z.object({
   nombreSolicitante: z.string().trim().min(3, "Escribe tu nombre completo").max(120),
-  correo: z.string().trim().email("Correo invalido").max(150),
-  area: z.string().trim().min(2, "Indica tu area").max(80),
+  area: z.enum(AREAS, { errorMap: () => ({ message: "Selecciona un area valida" }) }),
   categoria: z.enum(CATEGORIAS, { errorMap: () => ({ message: "Selecciona una categoria valida" }) }),
   descripcion: z.string().trim().min(10, "Describe el problema con mas detalle (minimo 10 caracteres)").max(2000),
   prioridad: z.enum(PRIORIDADES).optional(),

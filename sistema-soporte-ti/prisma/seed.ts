@@ -24,8 +24,7 @@ async function main() {
       data: {
         codigoTicket: "TCK-000001",
         nombreSolicitante: "Colaborador de prueba",
-        correo: "colaborador@empresa.com",
-        area: "Ventas",
+        area: "Asesor",
         categoria: "Software",
         descripcion: "Ticket de ejemplo generado por el script de seed para verificar el panel.",
         estado: "PENDIENTE",

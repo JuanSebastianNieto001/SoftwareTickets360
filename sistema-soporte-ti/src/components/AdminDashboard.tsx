@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EstadoBadge from "@/components/EstadoBadge";
+import PrioridadBadge from "@/components/PrioridadBadge";
 import { formatearMinutos } from "@/lib/ticket";
+
+const INTERVALO_ACTUALIZACION_MS = 5000;
 
 type Ticket = {
   id: string;
   codigoTicket: string;
   nombreSolicitante: string;
-  correo: string;
   area: string;
   categoria: string;
   descripcion: string;
@@ -45,10 +47,12 @@ export default function AdminDashboard() {
   const [ticketAbierto, setTicketAbierto] = useState<string | null>(null);
   const [solucionTexto, setSolucionTexto] = useState("");
   const [procesando, setProcesando] = useState<string | null>(null);
+  const primeraCargaHecha = useRef(false);
 
   const cargar = useCallback(async () => {
-    setCargando(true);
-    setError(null);
+    // Solo mostramos "Cargando..." la primera vez; las actualizaciones
+    // automaticas en segundo plano no deben hacer parpadear la lista.
+    if (!primeraCargaHecha.current) setCargando(true);
     const params = new URLSearchParams();
     if (filtro !== "TODOS") params.set("estado", filtro);
     if (busqueda.trim()) params.set("q", busqueda.trim());
@@ -57,15 +61,20 @@ export default function AdminDashboard() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setTickets(data.tickets);
+      setError(null);
     } catch {
       setError("No se pudieron cargar los tickets.");
     } finally {
       setCargando(false);
+      primeraCargaHecha.current = true;
     }
   }, [filtro, busqueda]);
 
   useEffect(() => {
+    primeraCargaHecha.current = false;
     cargar();
+    const intervalo = setInterval(cargar, INTERVALO_ACTUALIZACION_MS);
+    return () => clearInterval(intervalo);
   }, [cargar]);
 
   const contadores = useMemo(() => {
@@ -149,7 +158,7 @@ export default function AdminDashboard() {
         </div>
         <input
           className="input max-w-xs"
-          placeholder="Buscar por codigo, nombre, correo o area..."
+          placeholder="Buscar por codigo, nombre o area..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
         />
@@ -183,12 +192,11 @@ export default function AdminDashboard() {
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-brand-700">{t.codigoTicket}</span>
                     <EstadoBadge estado={t.estado} />
-                    <span className="badge bg-slate-100 text-slate-600">{t.prioridad}</span>
+                    <PrioridadBadge prioridad={t.prioridad} />
                   </div>
                   <p className="mt-1 text-sm font-medium text-slate-900">
                     {t.nombreSolicitante} · {t.area} · {t.categoria}
                   </p>
-                  <p className="text-xs text-slate-500">{t.correo}</p>
                 </div>
                 <div className="flex gap-2">
                   {t.estado === "PENDIENTE" && (
