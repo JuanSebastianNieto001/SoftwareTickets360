@@ -16,7 +16,7 @@ Implementa la propuesta descrita en `../PROPUESTA_SISTEMA_SOPORTE_TI/`.
   sesion (mas simple porque solo hay un rol: administrador).
 - Autenticacion propia por cookie firmada (JWT con `jose`) + `bcryptjs` para
   contrasenas.
-- `exceljs` para la exportacion diaria de tickets cerrados a Excel.
+- `exceljs` para la exportacion de tickets a Excel.
 - Desplegado en **Vercel** (plan gratuito).
 
 ## Reglas de negocio implementadas
@@ -29,9 +29,19 @@ Implementa la propuesta descrita en `../PROPUESTA_SISTEMA_SOPORTE_TI/`.
 - Al **cerrar** el ticket (con la solucion aplicada) se registra la fecha de
   cierre, el tiempo de resolucion (desde el inicio) y el tiempo total (desde
   la creacion).
-- Exportacion a Excel de los tickets cerrados de un dia especifico
-  (`/api/admin/export/excel?fecha=YYYY-MM-DD`, por defecto hoy). Botón
-  disponible directamente en el panel.
+- La **prioridad no la elige quien reporta**: se asigna sola segun la
+  categoria (tabla `PRIORIDAD_POR_CATEGORIA` en `src/lib/ticket.ts`).
+  Hardware, Software, Red / Internet y Accesos y credenciales → ALTA;
+  Correo electronico → MEDIA; Impresoras y Otro → BAJA. Aplica igual para
+  las dos areas. El servidor la calcula e ignora cualquier prioridad que
+  venga en la peticion.
+- En el panel, un ticket cerrado muestra solo **cuanto tomo resolverlo**
+  (desde "Voy en camino" hasta el cierre). El tiempo de llegada y el total
+  se siguen guardando y salen en el Excel.
+- Exportacion a Excel de **todos** los tickets que haya en la base en ese
+  momento (`/api/admin/export/excel`), sin filtrar por fecha ni por estado:
+  el flujo es exportar y luego vaciar, y a veces se vacia cada 2 o 3 dias.
+  Boton disponible directamente en el panel.
 - Limpieza progresiva: `POST /api/admin/limpieza?dias=30` borra tickets
   cerrados con mas de N dias (para no saturar el plan gratuito de la base de
   datos). Pensado para llamarse desde una tarea programada (cron) o
@@ -112,7 +122,10 @@ src/
     api/admin/export/excel/    Exportacion Excel — protegido
     api/admin/limpieza/        Limpieza de tickets antiguos — protegido
   components/                 UI (formulario, dashboard, badges, etc.)
-  lib/                        Prisma client, auth, validaciones, utilidades
+  lib/                        Prisma client, auth, validaciones, dominio
+    ticket.ts                 Catalogos y reglas puras (sin base de datos:
+                              lo importan componentes de cliente)
+    codigoTicket.ts           Generacion del codigo TCK-xxxxxx (usa Prisma)
   middleware.ts                Protege /admin y /api/admin verificando la cookie
 prisma/
   schema.prisma                Modelo de datos (User, Ticket)

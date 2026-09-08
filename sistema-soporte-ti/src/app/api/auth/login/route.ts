@@ -3,6 +3,10 @@ import { prisma } from "@/lib/db";
 import { crearSesion, establecerCookieSesion, verificarPassword } from "@/lib/auth";
 import { loginSchema } from "@/lib/validation";
 
+// POST /api/auth/login — unico punto de entrada de autenticacion del panel.
+// Usuario y contrasena incorrectos devuelven el MISMO mensaje de error (no
+// se distingue "usuario no existe" de "contrasena incorrecta") para no darle
+// pistas a quien intente adivinar credenciales por fuerza bruta.
 export async function POST(request: NextRequest) {
   let body: unknown;
   try {

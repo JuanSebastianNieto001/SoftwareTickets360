@@ -1,8 +1,16 @@
 "use client";
 
+// Formulario publico de creacion de tickets (src/app/page.tsx). No pide
+// correo ni login: el unico dato de contacto es el nombre. Las opciones de
+// area y categoria salen de src/lib/ticket.ts, asi que agregar un valor
+// nuevo ahi se refleja automaticamente aqui sin tocar este archivo.
+//
+// La prioridad no se pide: se deduce de la categoria elegida. Aqui solo se
+// muestra como anticipo; el valor que se guarda lo calcula el servidor.
 import { useState, FormEvent } from "react";
-import { AREAS, CATEGORIAS, PRIORIDADES } from "@/lib/ticket";
-import { IconUser, IconPin, IconTag, IconFlag, IconMessage, IconSend } from "@/components/icons";
+import { AREAS, CATEGORIAS, prioridadParaCategoria } from "@/lib/ticket";
+import PrioridadBadge from "@/components/PrioridadBadge";
+import { IconUser, IconPuesto, IconPin, IconTag, IconMessage, IconSend } from "@/components/icons";
 
 type Estado =
   | { paso: "formulario" }
@@ -12,6 +20,12 @@ type Estado =
 
 export default function TicketForm() {
   const [estado, setEstado] = useState<Estado>({ paso: "formulario" });
+  // Se controla en estado (en vez de dejarlo suelto como los demas campos)
+  // para poder descartar cualquier caracter que no sea digito mientras se
+  // escribe o se pega, no solo al enviar.
+  const [numeroPuesto, setNumeroPuesto] = useState("");
+  // Se guarda solo para poder mostrar la prioridad que le va a corresponder.
+  const [categoria, setCategoria] = useState("");
 
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -20,9 +34,9 @@ export default function TicketForm() {
     const form = new FormData(e.currentTarget);
     const payload = {
       nombreSolicitante: String(form.get("nombreSolicitante") ?? ""),
+      numeroPuesto: String(form.get("numeroPuesto") ?? ""),
       area: String(form.get("area") ?? ""),
       categoria: String(form.get("categoria") ?? ""),
-      prioridad: String(form.get("prioridad") ?? "MEDIA"),
       descripcion: String(form.get("descripcion") ?? ""),
     };
 
@@ -60,7 +74,14 @@ export default function TicketForm() {
           <a href={`/seguimiento?codigo=${estado.codigo}`} className="btn-primary">
             Consultar estado
           </a>
-          <button className="btn-secondary" onClick={() => setEstado({ paso: "formulario" })}>
+          <button
+            className="btn-secondary"
+            onClick={() => {
+              setNumeroPuesto("");
+              setCategoria("");
+              setEstado({ paso: "formulario" });
+            }}
+          >
             Crear otro ticket
           </button>
         </div>
@@ -106,30 +127,46 @@ export default function TicketForm() {
           </select>
         </div>
         <div>
-          <label className="label" htmlFor="categoria">
-            <IconTag className="h-4 w-4 text-brand-500" />
-            Categoria del problema
+          <label className="label" htmlFor="numeroPuesto">
+            <IconPuesto className="h-4 w-4 text-brand-500" /># del Puesto
           </label>
-          <select className="input" id="categoria" name="categoria" required defaultValue="">
+          <input
+            className="input"
+            id="numeroPuesto"
+            name="numeroPuesto"
+            inputMode="numeric"
+            placeholder="Ej. 12"
+            required
+            maxLength={10}
+            value={numeroPuesto}
+            onChange={(e) => setNumeroPuesto(e.target.value.replace(/[^0-9]/g, ""))}
+          />
+        </div>
+        <div>
+          <label className="label" htmlFor="categoria">
+            <IconTag className="h-4 w-4 shrink-0 text-brand-500" />
+            Categoria
+            {categoria && (
+              <span className="ml-auto flex shrink-0 items-center gap-1.5 font-normal text-slate-500">
+                Prioridad
+                <PrioridadBadge prioridad={prioridadParaCategoria(categoria)} />
+              </span>
+            )}
+          </label>
+          <select
+            className="input"
+            id="categoria"
+            name="categoria"
+            required
+            value={categoria}
+            onChange={(e) => setCategoria(e.target.value)}
+          >
             <option value="" disabled>
               Selecciona una opcion
             </option>
             {CATEGORIAS.map((c) => (
               <option key={c} value={c}>
                 {c}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="label" htmlFor="prioridad">
-            <IconFlag className="h-4 w-4 text-brand-500" />
-            Prioridad
-          </label>
-          <select className="input" id="prioridad" name="prioridad" defaultValue="MEDIA">
-            {PRIORIDADES.map((p) => (
-              <option key={p} value={p}>
-                {p === "BAJA" ? "Baja" : p === "MEDIA" ? "Media" : "Alta"}
               </option>
             ))}
           </select>

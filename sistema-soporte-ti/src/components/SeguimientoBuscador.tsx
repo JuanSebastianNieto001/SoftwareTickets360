@@ -1,9 +1,12 @@
 "use client";
 
+// Buscador publico de seguimiento (src/app/seguimiento). Cualquiera con el
+// codigo del ticket (TCK-000123) puede consultar su estado sin login; no
+// expone datos de otros tickets porque la API busca por codigo exacto.
 import { useState, FormEvent, useEffect } from "react";
 import EstadoBadge from "@/components/EstadoBadge";
 import PrioridadBadge from "@/components/PrioridadBadge";
-import { formatearMinutos } from "@/lib/ticket";
+import { formatearFechaHora, formatearMinutos } from "@/lib/ticket";
 
 type Ticket = {
   codigoTicket: string;
@@ -20,10 +23,9 @@ type Ticket = {
   solucion: string | null;
 };
 
-function formatearFecha(f: string | null) {
-  if (!f) return null;
-  return new Date(f).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
-}
+/** Mismo formato de fecha del panel, pero con mes escrito y sin "-" cuando falta. */
+const formatearFecha = (fecha: string | null) =>
+  formatearFechaHora(fecha, { estilo: "medium", vacio: "" });
 
 export default function SeguimientoBuscador({ codigoInicial }: { codigoInicial?: string }) {
   const [codigo, setCodigo] = useState(codigoInicial ?? "");

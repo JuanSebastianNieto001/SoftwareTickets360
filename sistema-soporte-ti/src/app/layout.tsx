@@ -1,3 +1,6 @@
+// Layout raiz: registra las dos familias tipograficas de la marca como
+// variables CSS (--font-display para titulos, --font-body para el resto),
+// mapeadas en tailwind.config.ts como fontFamily.display / fontFamily.sans.
 import type { Metadata } from "next";
 import { Sora, Manrope } from "next/font/google";
 import "./globals.css";

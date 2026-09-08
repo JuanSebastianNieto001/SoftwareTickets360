@@ -1,3 +1,5 @@
+// Chip de color por estado del ticket. Los colores (badge-pendiente/proceso/cerrado)
+// estan definidos en globals.css junto con el resto de clases .badge*.
 type Estado = "PENDIENTE" | "EN_PROCESO" | "CERRADO";
 
 const ETIQUETAS: Record<Estado, string> = {

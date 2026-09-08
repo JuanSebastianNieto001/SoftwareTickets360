@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
 // Orden de la vista de admin: tickets activos (nuevos primero) arriba,
-// los ya cerrados abajo.
+// los ya cerrados abajo. Se ordena en JS despues del fetch (no con
+// `orderBy` de Prisma) porque `estado` es un String plano, no un enum
+// nativo de Postgres (ver comentario en prisma/schema.prisma), asi que
+// Prisma no tiene forma de ordenar por una secuencia custom como esta sin
+// caer a SQL crudo.
 const ORDEN_ESTADO: Record<string, number> = { PENDIENTE: 0, EN_PROCESO: 1, CERRADO: 2 };
 
 // GET /api/admin/tickets?estado=PENDIENTE — listado para el panel. Protegido por middleware.
@@ -20,6 +24,7 @@ export async function GET(request: NextRequest) {
             OR: [
               { codigoTicket: { contains: busqueda } },
               { nombreSolicitante: { contains: busqueda } },
+              { numeroPuesto: { contains: busqueda } },
               { area: { contains: busqueda } },
             ],
           }
@@ -34,7 +39,22 @@ export async function GET(request: NextRequest) {
     return b.fechaCreacion.getTime() - a.fechaCreacion.getTime();
   });
 
-  return NextResponse.json({ tickets });
+  // Los contadores se calculan sobre TODA la tabla, no sobre `tickets`, que
+  // ya viene filtrado: si no, al filtrar por "Pendientes" los otros dos
+  // contadores mostrarian 0 aunque haya tickets en esos estados.
+  const conteoPorEstado = await prisma.ticket.groupBy({
+    by: ["estado"],
+    _count: { _all: true },
+  });
+
+  const contadores = { PENDIENTE: 0, EN_PROCESO: 0, CERRADO: 0 };
+  for (const fila of conteoPorEstado) {
+    if (fila.estado in contadores) {
+      contadores[fila.estado as keyof typeof contadores] = fila._count._all;
+    }
+  }
+
+  return NextResponse.json({ tickets, contadores });
 }
 
 // DELETE /api/admin/tickets?confirmacion=ELIMINAR — borra TODOS los tickets de la base de datos.

@@ -1,17 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+// Panel del administrador (src/app/admin/page.tsx): lista, filtra, avanza
+// el estado (PENDIENTE -> EN_PROCESO -> CERRADO), cierra con solucion y
+// elimina tickets. Se refresca solo con polling (ver INTERVALO_ACTUALIZACION_MS)
+// en vez de websockets/SSE, que hubiera sido mas trabajo para un MVP con
+// un solo admin viendo la pantalla.
+import { useCallback, useEffect, useRef, useState } from "react";
 import EstadoBadge from "@/components/EstadoBadge";
 import PrioridadBadge from "@/components/PrioridadBadge";
 import { IconTrash } from "@/components/icons";
-import { formatearMinutos } from "@/lib/ticket";
+import { formatearFechaHora, formatearMinutos } from "@/lib/ticket";
 
 const INTERVALO_ACTUALIZACION_MS = 5000;
+// Espera antes de buscar mientras se escribe, para no lanzar una consulta a
+// la base por cada tecla.
+const RETARDO_BUSQUEDA_MS = 350;
+
+type Contadores = { PENDIENTE: number; EN_PROCESO: number; CERRADO: number };
+
+const CONTADORES_VACIOS: Contadores = { PENDIENTE: 0, EN_PROCESO: 0, CERRADO: 0 };
 
 type Ticket = {
   id: string;
   codigoTicket: string;
   nombreSolicitante: string;
+  numeroPuesto: string;
   area: string;
   categoria: string;
   descripcion: string;
@@ -34,15 +47,14 @@ const FILTROS = [
   { valor: "CERRADO", etiqueta: "Cerrados" },
 ] as const;
 
-function formatearFecha(f: string | null) {
-  if (!f) return "-";
-  return new Date(f).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
-}
-
 export default function AdminDashboard() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [contadores, setContadores] = useState<Contadores>(CONTADORES_VACIOS);
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]["valor"]>("TODOS");
+  // `busqueda` es lo que se ve en el input; `busquedaAplicada` es lo que
+  // realmente se manda al servidor, con retardo (ver RETARDO_BUSQUEDA_MS).
   const [busqueda, setBusqueda] = useState("");
+  const [busquedaAplicada, setBusquedaAplicada] = useState("");
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ticketAbierto, setTicketAbierto] = useState<string | null>(null);
@@ -56,12 +68,13 @@ export default function AdminDashboard() {
     if (!primeraCargaHecha.current) setCargando(true);
     const params = new URLSearchParams();
     if (filtro !== "TODOS") params.set("estado", filtro);
-    if (busqueda.trim()) params.set("q", busqueda.trim());
+    if (busquedaAplicada) params.set("q", busquedaAplicada);
     try {
       const res = await fetch(`/api/admin/tickets?${params.toString()}`, { cache: "no-store" });
       if (!res.ok) throw new Error();
       const data = await res.json();
       setTickets(data.tickets);
+      setContadores(data.contadores ?? CONTADORES_VACIOS);
       setError(null);
     } catch {
       setError("No se pudieron cargar los tickets.");
@@ -69,7 +82,13 @@ export default function AdminDashboard() {
       setCargando(false);
       primeraCargaHecha.current = true;
     }
-  }, [filtro, busqueda]);
+  }, [filtro, busquedaAplicada]);
+
+  // Retarda lo que se escribe en el buscador antes de consultar.
+  useEffect(() => {
+    const temporizador = setTimeout(() => setBusquedaAplicada(busqueda.trim()), RETARDO_BUSQUEDA_MS);
+    return () => clearTimeout(temporizador);
+  }, [busqueda]);
 
   useEffect(() => {
     primeraCargaHecha.current = false;
@@ -77,14 +96,6 @@ export default function AdminDashboard() {
     const intervalo = setInterval(cargar, INTERVALO_ACTUALIZACION_MS);
     return () => clearInterval(intervalo);
   }, [cargar]);
-
-  const contadores = useMemo(() => {
-    return {
-      PENDIENTE: tickets.filter((t) => t.estado === "PENDIENTE").length,
-      EN_PROCESO: tickets.filter((t) => t.estado === "EN_PROCESO").length,
-      CERRADO: tickets.filter((t) => t.estado === "CERRADO").length,
-    };
-  }, [tickets]);
 
   async function iniciarTicket(id: string) {
     setProcesando(id);
@@ -126,6 +137,10 @@ export default function AdminDashboard() {
     }
   }
 
+  // Borra un ticket puntual. Usa window.confirm (simple si/no) porque es una
+  // accion acotada a un solo registro; el borrado masivo de abajo pide algo
+  // mas fuerte (escribir la palabra ELIMINAR) porque su radio de impacto es
+  // mucho mayor.
   async function eliminarTicket(id: string, codigo: string) {
     const confirmado = window.confirm(
       `¿Eliminar el ticket ${codigo}? Esta accion no se puede deshacer.`
@@ -144,6 +159,11 @@ export default function AdminDashboard() {
     }
   }
 
+  // Borra TODOS los tickets. Pide escribir literalmente "ELIMINAR" (no solo
+  // aceptar/cancelar) para que un clic accidental no pueda vaciar la tabla;
+  // el backend (DELETE /api/admin/tickets) tambien exige ese mismo texto
+  // como query param, asi que la confirmacion esta duplicada en cliente y
+  // servidor, no es solo cosmetica.
   async function vaciarBaseDeDatos() {
     const escrito = window.prompt(
       `Esto elimina TODOS los tickets (${tickets.length} en este momento) de forma permanente.\n\nEscribe ELIMINAR para confirmar:`
@@ -196,15 +216,14 @@ export default function AdminDashboard() {
         </div>
         <input
           className="input max-w-xs"
-          placeholder="Buscar por codigo, nombre o area..."
+          placeholder="Buscar por codigo, nombre, puesto o area..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
         />
-        <a
-          href={`/api/admin/export/excel?fecha=${new Date().toISOString().slice(0, 10)}`}
-          className="btn-secondary ml-auto"
-        >
-          Exportar Excel de hoy
+        {/* Exporta todo lo que haya en la base, no solo lo del dia: la idea es
+            exportar y despues vaciar, y a veces se vacia cada 2 o 3 dias. */}
+        <a href="/api/admin/export/excel" className="btn-secondary ml-auto">
+          Exportar Excel
         </a>
         <button
           onClick={vaciarBaseDeDatos}
@@ -241,7 +260,8 @@ export default function AdminDashboard() {
                     <PrioridadBadge prioridad={t.prioridad} />
                   </div>
                   <p className="mt-1 text-sm font-medium text-slate-900">
-                    {t.nombreSolicitante} · {t.area} · {t.categoria}
+                    {t.nombreSolicitante}
+                    {t.numeroPuesto ? ` · Puesto ${t.numeroPuesto}` : ""} · {t.area} · {t.categoria}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -280,22 +300,20 @@ export default function AdminDashboard() {
               <p className="mt-2 text-sm text-slate-700">{t.descripcion}</p>
 
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-500 sm:grid-cols-4">
-                <span>Creado: {formatearFecha(t.fechaCreacion)}</span>
-                <span>Inicio: {formatearFecha(t.fechaInicio)}</span>
-                <span>Cierre: {formatearFecha(t.fechaCierre)}</span>
+                <span>Creado: {formatearFechaHora(t.fechaCreacion)}</span>
+                <span>Inicio: {formatearFechaHora(t.fechaInicio)}</span>
+                <span>Cierre: {formatearFechaHora(t.fechaCierre)}</span>
                 <span>Atendido por: {t.admin?.nombre ?? "-"}</span>
               </div>
 
+              {/* Solo se muestra cuanto tomo resolverlo (desde "Voy en camino"
+                  hasta el cierre). El tiempo de llegada y el total se siguen
+                  calculando y guardando, y salen en el Excel, pero en el panel
+                  confundian mas de lo que ayudaban. */}
               {t.estado === "CERRADO" && (
-                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                  <span className="rounded bg-slate-50 px-2 py-1">
-                    Llegada: {formatearMinutos(t.tiempoLlegada)}
-                  </span>
-                  <span className="rounded bg-slate-50 px-2 py-1">
-                    Resolucion: {formatearMinutos(t.tiempoResolucion)}
-                  </span>
-                  <span className="rounded bg-slate-50 px-2 py-1">
-                    Total: {formatearMinutos(t.tiempoTotal)}
+                <div className="mt-3 text-xs">
+                  <span className="inline-block rounded bg-slate-50 px-2 py-1">
+                    Se resolvio en: {formatearMinutos(t.tiempoResolucion)}
                   </span>
                 </div>
               )}

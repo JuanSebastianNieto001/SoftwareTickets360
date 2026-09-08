@@ -39,6 +39,11 @@ model Ticket {
   id                 String    @id @default(cuid())
   codigoTicket       String    @unique
   nombreSolicitante  String
+  // Solo digitos. Se guarda como texto (no Int) para conservar ceros a la
+  // izquierda tipo "007"; la validacion de "solo numeros" esta en
+  // src/lib/validation.ts. Tiene default "" para que la migracion no falle
+  // sobre tickets creados antes de que existiera el campo.
+  numeroPuesto       String    @default("")
   area               String    // Asesor | Administrativos
   categoria          String
   descripcion        String

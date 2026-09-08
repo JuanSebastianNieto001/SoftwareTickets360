@@ -30,15 +30,19 @@ export default function InicioPage() {
         </div>
       </section>
 
+      {/* relative z-10 es necesario aqui, no solo decorativo: el <section>
+          de arriba tiene position: relative (por "isolate"), asi que sin
+          esto el <main> (position: static) pinta DEBAJO del hero en la
+          franja donde se solapan por el margen negativo, y la mitad
+          superior de la tarjeta queda invisible aunque el DOM este bien. */}
       <main className="relative z-10 mx-auto -mt-10 w-full max-w-2xl flex-1 px-4 pb-8 sm:-mt-12">
         <TicketForm />
 
-        <div className="mt-4 flex flex-col items-center gap-1.5 text-sm">
+        {/* Sin enlace al panel de admin: el administrador entra escribiendo
+            /admin/login directo, no hace falta mostrarselo a todo el mundo. */}
+        <div className="mt-4 text-center text-sm">
           <a href="/seguimiento" className="font-medium text-brand-700 hover:underline">
             ¿Ya tienes un ticket? Consulta su estado aqui
-          </a>
-          <a href="/admin/login" className="text-slate-400 hover:underline">
-            Acceso administrador
           </a>
         </div>
       </main>

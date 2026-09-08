@@ -1,5 +1,9 @@
 "use client";
 
+// Formulario de login del panel de administrador (src/app/admin/login).
+// Al iniciar sesion, redirige a `next` si viene de un intento de entrar a
+// una ruta protegida sin sesion (ver el `?next=` que agrega middleware.ts),
+// o a /admin por defecto.
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { IconUser, IconLock } from "@/components/icons";
@@ -65,6 +69,9 @@ export default function LoginForm({ next }: { next?: string }) {
             required
             autoComplete="current-password"
           />
+          {/* Ojo mostrar/ocultar contrasena: cambia el `type` del input entre
+              "password" y "text". tabIndex={-1} para que Tab salte directo
+              del campo de contrasena al boton de enviar. */}
           <button
             type="button"
             onClick={() => setVerPassword((v) => !v)}

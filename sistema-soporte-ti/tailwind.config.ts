@@ -25,6 +25,10 @@ const config: Config = {
         },
       },
       backgroundImage: {
+        // Se usan juntos en las secciones "hero" (.voz-hero + .voz-dots en
+        // globals.css): el gradiente da el fondo navy, los puntos son una
+        // textura sutil encima. Ambos deben usar tonos brand-800/900/950
+        // para que combinen si se cambia la paleta.
         "voz-hero": "radial-gradient(120% 140% at 15% 0%, #064c93 0%, #032140 55%, #021427 100%)",
         "voz-dots":
           "radial-gradient(rgba(255,255,255,0.16) 1px, transparent 1.5px)",

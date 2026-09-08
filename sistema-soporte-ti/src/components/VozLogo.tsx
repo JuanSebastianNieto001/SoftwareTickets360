@@ -1,3 +1,5 @@
+// Logo chico "isotipo + nombre" para barras de navegacion (SiteHeader, admin).
+// Para el logo grande y animado de las pantallas de entrada, ver HeroLogo.tsx.
 import Image from "next/image";
 
 export default function VozLogo({ withTagline = true }: { withTagline?: boolean }) {

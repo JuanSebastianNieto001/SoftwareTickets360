@@ -1,42 +1,52 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { prisma } from "@/lib/db";
 import { formatearMinutos } from "@/lib/ticket";
 
-// GET /api/admin/export/excel?fecha=YYYY-MM-DD
-// Genera el Excel diario de tickets cerrados (por defecto, el dia de hoy).
-export async function GET(request: NextRequest) {
-  const fechaParam = request.nextUrl.searchParams.get("fecha");
-  const fecha = fechaParam ? new Date(`${fechaParam}T00:00:00`) : new Date();
-  if (Number.isNaN(fecha.getTime())) {
-    return NextResponse.json({ error: "Fecha invalida" }, { status: 400 });
-  }
+// Obligatorio: esta ruta no lee `request` ni cookies, y sin esto Next.js la
+// trata como estatica, la ejecuta una sola vez durante el build y despues
+// devuelve siempre ese mismo Excel congelado (con los tickets que existian
+// al momento de compilar). Tiene que consultar la base en cada descarga.
+export const dynamic = "force-dynamic";
 
-  const inicioDia = new Date(fecha);
-  inicioDia.setHours(0, 0, 0, 0);
-  const finDia = new Date(fecha);
-  finDia.setHours(23, 59, 59, 999);
+// Estados legibles para la columna del Excel (en la base se guardan en mayuscula fija).
+const ETIQUETA_ESTADO: Record<string, string> = {
+  PENDIENTE: "Pendiente",
+  EN_PROCESO: "En proceso",
+  CERRADO: "Cerrado",
+};
 
+// GET /api/admin/export/excel
+// Exporta TODOS los tickets que haya en la base de datos en este momento,
+// sin filtrar por fecha ni por estado.
+//
+// Antes exportaba solo los cerrados del dia. Se cambio porque el flujo real
+// es: exportar y despues vaciar la base. Si pasan dos o tres dias sin
+// vaciarla, el Excel igual tiene que traer todo lo acumulado, y tambien los
+// que quedaron abiertos, para que al vaciar no se pierda ningun registro.
+export async function GET() {
   const tickets = await prisma.ticket.findMany({
-    where: { estado: "CERRADO", fechaCierre: { gte: inicioDia, lte: finDia } },
     include: { admin: { select: { nombre: true } } },
-    orderBy: { fechaCierre: "asc" },
+    orderBy: { fechaCreacion: "asc" },
   });
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Sistema de Gestion de Soportes TI";
   workbook.created = new Date();
 
-  const hoja = workbook.addWorksheet("Tickets cerrados", {
+  const hoja = workbook.addWorksheet("Tickets", {
     views: [{ state: "frozen", ySplit: 1 }],
   });
 
   hoja.columns = [
     { header: "Codigo", key: "codigo", width: 14 },
     { header: "Solicitante", key: "solicitante", width: 26 },
+    { header: "Puesto", key: "puesto", width: 10 },
     { header: "Area", key: "area", width: 18 },
     { header: "Categoria", key: "categoria", width: 20 },
     { header: "Prioridad", key: "prioridad", width: 12 },
+    // El export ya no es solo de cerrados, asi que hay que poder distinguirlos.
+    { header: "Estado", key: "estado", width: 14 },
     { header: "Descripcion", key: "descripcion", width: 40 },
     { header: "Solucion", key: "solucion", width: 40 },
     { header: "Atendido por", key: "atendidoPor", width: 22 },
@@ -61,9 +71,11 @@ export async function GET(request: NextRequest) {
     hoja.addRow({
       codigo: t.codigoTicket,
       solicitante: t.nombreSolicitante,
+      puesto: t.numeroPuesto,
       area: t.area,
       categoria: t.categoria,
       prioridad: t.prioridad,
+      estado: ETIQUETA_ESTADO[t.estado] ?? t.estado,
       descripcion: t.descripcion,
       solucion: t.solucion ?? "",
       atendidoPor: t.admin?.nombre ?? "",
@@ -81,7 +93,9 @@ export async function GET(request: NextRequest) {
   });
 
   const buffer = await workbook.xlsx.writeBuffer();
-  const nombreArchivo = `tickets_cerrados_${inicioDia.toISOString().slice(0, 10)}.xlsx`;
+  // La fecha del nombre es la de descarga, para poder guardar varios exports
+  // seguidos sin que se pisen entre ellos.
+  const nombreArchivo = `tickets_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
   return new NextResponse(buffer, {
     status: 200,

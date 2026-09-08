@@ -1,3 +1,7 @@
+// Pantalla de login del admin. `searchParams.next` es la ruta protegida que
+// el usuario intentaba abrir antes de que middleware.ts lo redirigiera aqui
+// (viene como /admin/login?next=/admin/algo); se la pasamos a LoginForm
+// para volver ahi despues de autenticarse en vez de siempre ir a /admin.
 import LoginForm from "@/components/LoginForm";
 import HeroLogo from "@/components/HeroLogo";
 

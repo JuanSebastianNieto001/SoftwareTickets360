@@ -1,3 +1,7 @@
+// Chip de color por prioridad (verde/ambar/rojo), usado en TicketForm,
+// AdminDashboard y SeguimientoBuscador. `prioridad` recibe `string` (no el
+// tipo Prioridad) porque llega tal cual desde la base de datos/API; si el
+// valor no es uno de los tres validos, cae a MEDIA en vez de romper.
 type Prioridad = "BAJA" | "MEDIA" | "ALTA";
 
 const ETIQUETAS: Record<Prioridad, string> = {

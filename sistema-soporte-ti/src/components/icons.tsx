@@ -1,3 +1,6 @@
+// Set de iconos SVG dibujados a mano (Heroicons-style, trazo 1.75-2), sin
+// libreria externa para no sumar una dependencia solo por unos pocos iconos.
+// Cada uno es puramente decorativo/informativo: no llevan onClick propio.
 type IconProps = { className?: string };
 
 const base = "h-4 w-4";
@@ -15,6 +18,17 @@ export function IconPin({ className = base }: IconProps) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 6-7.5 11-7.5 11s-7.5-5-7.5-11a7.5 7.5 0 1 1 15 0Z" />
+    </svg>
+  );
+}
+
+// Monitor/puesto de trabajo. Se usa en la etiqueta "# del Puesto" del
+// formulario publico (un icono de "#" ahi se veria repetido con el texto).
+export function IconPuesto({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 5.25h18v10.5H3z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 20.25h6m-3-4.5v4.5" />
     </svg>
   );
 }

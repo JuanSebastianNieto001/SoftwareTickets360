@@ -21,6 +21,9 @@ export default function SeguimientoPage({
         </div>
       </section>
 
+      {/* relative z-10: mismo fix de orden de pintado que en src/app/page.tsx
+          (el <section> del hero es "position: relative" y pintaria encima
+          del <main> estatico en la zona de solape del margen negativo). */}
       <main className="relative z-10 mx-auto -mt-12 w-full max-w-xl flex-1 px-4 pb-14">
         <SeguimientoBuscador codigoInicial={searchParams.codigo} />
 

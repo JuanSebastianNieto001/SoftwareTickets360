@@ -1,3 +1,11 @@
+// Guardia de rutas: protege /admin (menos /admin/login) y /api/admin/*
+// exigiendo una cookie de sesion con JWT valido.
+//
+// Duplica la verificacion de jose/JWT que ya existe en src/lib/auth.ts en
+// vez de importarla porque el middleware de Next.js corre en el Edge
+// Runtime, que no soporta todas las APIs de Node que usa el resto de la
+// app (por ejemplo bcryptjs). Si cambias el algoritmo o el secreto de
+// firma en auth.ts, replica el cambio aqui tambien.
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 

@@ -4,6 +4,13 @@ import { prisma } from "@/lib/db";
 // POST /api/admin/limpieza?dias=30
 // Borra tickets CERRADOS con mas de N dias desde su cierre, para evitar
 // saturar el plan gratuito de la base de datos (limpieza progresiva).
+//
+// No hay ningun boton en la UI que llame esta ruta: es un endpoint de
+// mantenimiento pensado para dispararse manualmente (o via un cron externo,
+// ej. Vercel Cron) cuando se quiera una limpieza automatica por antiguedad.
+// El borrado manual desde el panel (individual o "vaciar todo", ver
+// src/app/api/admin/tickets/route.ts y .../tickets/[id]/route.ts) es el
+// mecanismo que sí usa el administrador dia a dia.
 export async function POST(request: NextRequest) {
   const diasParam = request.nextUrl.searchParams.get("dias");
   const dias = diasParam ? Number(diasParam) : 30;

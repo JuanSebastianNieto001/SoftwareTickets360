@@ -30,6 +30,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ error: "El ticket ya esta cerrado" }, { status: 409 });
   }
 
+  // Normalmente el ticket ya paso por /iniciar (RF-05, "Voy en camino") y
+  // trae fechaInicio + tiempoLlegada calculados. Pero el admin puede cerrar
+  // un ticket PENDIENTE directamente sin pasar por ese paso, asi que aqui
+  // se cubre ese caso: si no hay fechaInicio, se usa el cierre como inicio
+  // (tiempo de resolucion = 0) y la llegada se calcula sobre la marcha.
   const ahora = new Date();
   const inicioParaCalculo = ticket.fechaInicio ?? ticket.fechaCreacion;
   const tiempoResolucion = Math.max(0, Math.round((ahora.getTime() - inicioParaCalculo.getTime()) / 60000));

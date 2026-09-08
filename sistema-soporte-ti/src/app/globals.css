@@ -1,3 +1,9 @@
+/* Clases compartidas de la UI (.card, .btn*, .input, .label, .badge*) mas
+   las clases del fondo "hero" (.voz-hero, .voz-dots). Estas dos ultimas se
+   definen aqui en CSS plano, ademas de existir como backgroundImage en
+   tailwind.config.ts, porque en el JSX se usan como clase suelta
+   (className="voz-hero ...") y no como utilidad con prefijo (bg-voz-hero);
+   si cambias el gradiente, actualiza los dos lugares o se desincronizan. */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

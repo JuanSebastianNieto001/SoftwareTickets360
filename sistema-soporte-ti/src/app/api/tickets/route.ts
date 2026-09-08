@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { generarCodigoTicket } from "@/lib/ticket";
+import { generarCodigoTicket } from "@/lib/codigoTicket";
+import { prioridadParaCategoria } from "@/lib/ticket";
 import { crearTicketSchema } from "@/lib/validation";
 
 // POST /api/tickets — creacion publica de un ticket. No requiere autenticacion.
@@ -25,10 +26,12 @@ export async function POST(request: NextRequest) {
     data: {
       codigoTicket,
       nombreSolicitante: data.nombreSolicitante,
+      numeroPuesto: data.numeroPuesto,
       area: data.area,
       categoria: data.categoria,
       descripcion: data.descripcion,
-      prioridad: data.prioridad ?? "MEDIA",
+      // La prioridad no la elige quien reporta: sale de la categoria.
+      prioridad: prioridadParaCategoria(data.categoria),
       estado: "PENDIENTE",
     },
   });
