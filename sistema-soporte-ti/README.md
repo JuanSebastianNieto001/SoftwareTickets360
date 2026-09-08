@@ -22,6 +22,11 @@ Implementa la propuesta descrita en `../PROPUESTA_SISTEMA_SOPORTE_TI/`.
 ## Reglas de negocio implementadas
 
 - El colaborador crea un ticket desde `/` sin autenticarse.
+- **Ningun campo puede quedar vacio**: el formulario no se envia y marca en
+  rojo cada campo faltante con "Este campo es obligatorio". Si el campo tiene
+  contenido pero invalido, muestra el motivo concreto (largo minimo, etc.).
+  El `<form>` usa `noValidate` para reemplazar los globos nativos del
+  navegador por estos mensajes.
 - El ticket pasa por tres estados: **PENDIENTE → EN PROCESO → CERRADO**.
 - El administrador es el unico usuario autenticado (`/admin`).
 - Al presionar **"Voy en camino"** el ticket pasa a EN PROCESO y se registra

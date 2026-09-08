@@ -7,6 +7,12 @@
 //
 // La prioridad no se pide: se deduce de la categoria elegida. Aqui solo se
 // muestra como anticipo; el valor que se guarda lo calcula el servidor.
+//
+// La validacion antes de enviar usa el MISMO esquema Zod que el servidor
+// (crearTicketSchema), no una copia de las reglas: cualquier cambio en
+// src/lib/validation.ts se refleja aqui solo. El <form> lleva noValidate
+// para desactivar los globos nativos del navegador y poder mostrar los
+// mensajes en rojo debajo de cada campo.
 import { useState, FormEvent } from "react";
 import {
   AREA_CON_TEAM_LEADER,
@@ -15,6 +21,7 @@ import {
   TEAM_LEADERS,
   prioridadParaCategoria,
 } from "@/lib/ticket";
+import { crearTicketSchema } from "@/lib/validation";
 import PrioridadBadge from "@/components/PrioridadBadge";
 import { IconUser, IconPuesto, IconPin, IconTag, IconPeople, IconMessage, IconSend } from "@/components/icons";
 
@@ -23,6 +30,8 @@ type Estado =
   | { paso: "enviando" }
   | { paso: "exito"; codigo: string }
   | { paso: "error"; mensaje: string };
+
+const OBLIGATORIO = "Este campo es obligatorio";
 
 export default function TicketForm() {
   const [estado, setEstado] = useState<Estado>({ paso: "formulario" });
@@ -34,11 +43,26 @@ export default function TicketForm() {
   const [categoria, setCategoria] = useState("");
   // El area se controla porque de ella depende que se pida o no el team leader.
   const [area, setArea] = useState("");
+  // Mensaje de error por campo. Se llena al intentar enviar y cada uno se
+  // borra en cuanto el usuario corrige ese campo.
+  const [errores, setErrores] = useState<Record<string, string>>({});
   const pideTeamLeader = area === AREA_CON_TEAM_LEADER;
+
+  const limpiarError = (campo: string) =>
+    setErrores((previos) => (previos[campo] ? { ...previos, [campo]: "" } : previos));
+
+  /** Clase del input, con borde rojo si ese campo tiene error. */
+  const claseCampo = (campo: string) =>
+    errores[campo] ? "input border-red-400 focus:border-red-400 focus:ring-red-100" : "input";
+
+  /** Texto rojo debajo del campo. */
+  const mensajeError = (campo: string) =>
+    errores[campo] ? (
+      <p className="mt-1 text-xs font-medium text-red-600">{errores[campo]}</p>
+    ) : null;
 
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setEstado({ paso: "enviando" });
 
     const form = new FormData(e.currentTarget);
     const payload = {
@@ -50,11 +74,53 @@ export default function TicketForm() {
       descripcion: String(form.get("descripcion") ?? ""),
     };
 
+    const nuevos: Record<string, string> = {};
+
+    // 1) Campos vacios. Se marcan aparte de Zod y no a partir de el, porque
+    // Zod no ejecuta el superRefine (la regla del team leader) cuando algun
+    // otro campo ya fallo: si dependieramos solo de Zod, ese aviso saldria
+    // recien en un segundo intento en vez de junto con los demas.
+    const requeridos = ["nombreSolicitante", "area", "numeroPuesto", "categoria", "descripcion"];
+    if (pideTeamLeader) requeridos.push("teamLeader");
+    for (const campo of requeridos) {
+      if (String(payload[campo as keyof typeof payload] ?? "").trim() === "") {
+        nuevos[campo] = OBLIGATORIO;
+      }
+    }
+
+    // 2) Campos con contenido pero invalido (largo minimo, valor fuera de la
+    // lista...). El mensaje sale del mismo esquema que usa el servidor.
+    const resultado = crearTicketSchema.safeParse(payload);
+    if (!resultado.success) {
+      for (const problema of resultado.error.errors) {
+        const campo = String(problema.path[0] ?? "");
+        if (!campo || nuevos[campo]) continue;
+        nuevos[campo] = problema.message;
+      }
+    }
+
+    if (Object.keys(nuevos).length > 0) {
+      setErrores(nuevos);
+      setEstado({ paso: "formulario" });
+      // Llevar el foco al primer campo con problema, en el orden del formulario.
+      const orden = ["nombreSolicitante", "area", "teamLeader", "numeroPuesto", "categoria", "descripcion"];
+      const primero = orden.find((campo) => nuevos[campo]);
+      if (primero) document.getElementById(primero)?.focus();
+      return;
+    }
+
+    if (!resultado.success) return; // no deberia pasar, pero acota el tipo de resultado.data
+
+    setErrores({});
+    setEstado({ paso: "enviando" });
+
     try {
       const res = await fetch("/api/tickets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        // resultado.data ya viene normalizado (por ejemplo, teamLeader vacio
+        // cuando el area no es Asesor).
+        body: JSON.stringify(resultado.data),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -101,7 +167,7 @@ export default function TicketForm() {
   }
 
   return (
-    <form onSubmit={enviar} className="card space-y-3 p-5">
+    <form onSubmit={enviar} noValidate className="card space-y-3 p-5">
       {estado.paso === "error" && (
         <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{estado.mensaje}</div>
       )}
@@ -113,13 +179,16 @@ export default function TicketForm() {
             Nombre completo
           </label>
           <input
-            className="input"
+            className={claseCampo("nombreSolicitante")}
             id="nombreSolicitante"
             name="nombreSolicitante"
             placeholder="Ingresa tu nombre completo"
             required
             minLength={3}
+            aria-invalid={Boolean(errores.nombreSolicitante)}
+            onChange={() => limpiarError("nombreSolicitante")}
           />
+          {mensajeError("nombreSolicitante")}
         </div>
         <div>
           <label className="label" htmlFor="area">
@@ -127,12 +196,19 @@ export default function TicketForm() {
             Area
           </label>
           <select
-            className="input"
+            className={claseCampo("area")}
             id="area"
             name="area"
             required
             value={area}
-            onChange={(e) => setArea(e.target.value)}
+            aria-invalid={Boolean(errores.area)}
+            onChange={(e) => {
+              setArea(e.target.value);
+              limpiarError("area");
+              // Al cambiar de area el team leader deja de aplicar (o pasa a
+              // pedirse): en cualquier caso su error anterior ya no vale.
+              limpiarError("teamLeader");
+            }}
           >
             <option value="" disabled>
               Selecciona una opcion
@@ -143,6 +219,7 @@ export default function TicketForm() {
               </option>
             ))}
           </select>
+          {mensajeError("area")}
         </div>
 
         {/* Solo para asesores: sirve para saber que team leader concentra mas
@@ -153,7 +230,15 @@ export default function TicketForm() {
               <IconPeople className="h-4 w-4 text-brand-500" />
               Team leader
             </label>
-            <select className="input" id="teamLeader" name="teamLeader" required defaultValue="">
+            <select
+              className={claseCampo("teamLeader")}
+              id="teamLeader"
+              name="teamLeader"
+              required
+              defaultValue=""
+              aria-invalid={Boolean(errores.teamLeader)}
+              onChange={() => limpiarError("teamLeader")}
+            >
               <option value="" disabled>
                 Selecciona tu team leader
               </option>
@@ -163,6 +248,7 @@ export default function TicketForm() {
                 </option>
               ))}
             </select>
+            {mensajeError("teamLeader")}
           </div>
         )}
 
@@ -171,7 +257,7 @@ export default function TicketForm() {
             <IconPuesto className="h-4 w-4 text-brand-500" /># del Puesto
           </label>
           <input
-            className="input"
+            className={claseCampo("numeroPuesto")}
             id="numeroPuesto"
             name="numeroPuesto"
             inputMode="numeric"
@@ -179,8 +265,13 @@ export default function TicketForm() {
             required
             maxLength={10}
             value={numeroPuesto}
-            onChange={(e) => setNumeroPuesto(e.target.value.replace(/[^0-9]/g, ""))}
+            aria-invalid={Boolean(errores.numeroPuesto)}
+            onChange={(e) => {
+              setNumeroPuesto(e.target.value.replace(/[^0-9]/g, ""));
+              limpiarError("numeroPuesto");
+            }}
           />
+          {mensajeError("numeroPuesto")}
         </div>
         <div>
           <label className="label" htmlFor="categoria">
@@ -194,12 +285,16 @@ export default function TicketForm() {
             )}
           </label>
           <select
-            className="input"
+            className={claseCampo("categoria")}
             id="categoria"
             name="categoria"
             required
             value={categoria}
-            onChange={(e) => setCategoria(e.target.value)}
+            aria-invalid={Boolean(errores.categoria)}
+            onChange={(e) => {
+              setCategoria(e.target.value);
+              limpiarError("categoria");
+            }}
           >
             <option value="" disabled>
               Selecciona una opcion
@@ -210,6 +305,7 @@ export default function TicketForm() {
               </option>
             ))}
           </select>
+          {mensajeError("categoria")}
         </div>
       </div>
 
@@ -219,13 +315,16 @@ export default function TicketForm() {
           Descripcion del problema
         </label>
         <textarea
-          className="input min-h-[70px]"
+          className={`${claseCampo("descripcion")} min-h-[70px]`}
           id="descripcion"
           name="descripcion"
           required
           minLength={10}
           placeholder="Cuentanos que esta pasando, desde cuando y que equipo o sistema esta involucrado."
+          aria-invalid={Boolean(errores.descripcion)}
+          onChange={() => limpiarError("descripcion")}
         />
+        {mensajeError("descripcion")}
       </div>
 
       <button type="submit" className="btn-primary w-full" disabled={estado.paso === "enviando"}>
