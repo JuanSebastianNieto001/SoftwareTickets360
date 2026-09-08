@@ -18,7 +18,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import EstadoBadge from "@/components/EstadoBadge";
 import PrioridadBadge from "@/components/PrioridadBadge";
 import { IconTrash } from "@/components/icons";
-import { formatearFechaHora, formatearMinutos } from "@/lib/ticket";
+import { TEAM_LEADERS, formatearFechaHora, formatearMinutos } from "@/lib/ticket";
 
 const INTERVALO_ACTUALIZACION_MS = 20000;
 // Espera antes de buscar mientras se escribe, para no lanzar una consulta a
@@ -36,6 +36,8 @@ type Ticket = {
   nombreSolicitante: string;
   numeroPuesto: string;
   area: string;
+  /** Vacio en los tickets de Administrativos. */
+  teamLeader: string;
   categoria: string;
   descripcion: string;
   estado: "PENDIENTE" | "EN_PROCESO" | "CERRADO";
@@ -65,6 +67,10 @@ export default function AdminDashboard() {
   // pedirlas cada vez que se abre y cierra el mismo ticket.
   const [detalles, setDetalles] = useState<Record<string, TicketDetalle>>({});
   const [detalleAbierto, setDetalleAbierto] = useState<string | null>(null);
+  // "" = todos los lideres. Tickets por lider en toda la tabla, para ver de
+  // un vistazo cual concentra mas.
+  const [teamLeader, setTeamLeader] = useState("");
+  const [porTeamLeader, setPorTeamLeader] = useState<Record<string, number>>({});
   // `busqueda` es lo que se ve en el input; `busquedaAplicada` es lo que
   // realmente se manda al servidor, con retardo (ver RETARDO_BUSQUEDA_MS).
   const [busqueda, setBusqueda] = useState("");
@@ -85,12 +91,14 @@ export default function AdminDashboard() {
     // resolver, que es lo unico que cambia mientras el panel esta abierto.
     const params = new URLSearchParams({ estado: filtro });
     if (busquedaAplicada) params.set("q", busquedaAplicada);
+    if (teamLeader) params.set("teamLeader", teamLeader);
     try {
       const res = await fetch(`/api/admin/tickets?${params.toString()}`, { cache: "no-store" });
       if (!res.ok) throw new Error();
       const data = await res.json();
       setTickets(data.tickets);
       setContadores(data.contadores ?? CONTADORES_VACIOS);
+      setPorTeamLeader(data.porTeamLeader ?? {});
       setError(null);
     } catch {
       setError("No se pudieron cargar los tickets.");
@@ -98,7 +106,7 @@ export default function AdminDashboard() {
       setCargando(false);
       primeraCargaHecha.current = true;
     }
-  }, [filtro, busquedaAplicada]);
+  }, [filtro, busquedaAplicada, teamLeader]);
 
   // Retarda lo que se escribe en el buscador antes de consultar.
   useEffect(() => {
@@ -292,6 +300,21 @@ export default function AdminDashboard() {
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
         />
+        {/* El numero entre parentesis es el total historico de cada lider (no
+            depende del filtro de estado), para comparar de un vistazo. */}
+        <select
+          className="input max-w-[15rem]"
+          value={teamLeader}
+          onChange={(e) => setTeamLeader(e.target.value)}
+          aria-label="Filtrar por team leader"
+        >
+          <option value="">Todos los team leaders</option>
+          {TEAM_LEADERS.map((lider) => (
+            <option key={lider} value={lider}>
+              {lider} ({porTeamLeader[lider] ?? 0})
+            </option>
+          ))}
+        </select>
         {/* Descarga los finalizados con su solucion (todos los que haya en la
             base, sin filtro de fecha: a veces se vacia cada 2 o 3 dias). */}
         <a href="/api/admin/export/excel" className="btn-secondary ml-auto">
@@ -333,7 +356,8 @@ export default function AdminDashboard() {
                   </div>
                   <p className="mt-1 text-sm font-medium text-slate-900">
                     {t.nombreSolicitante}
-                    {t.numeroPuesto ? ` · Puesto ${t.numeroPuesto}` : ""} · {t.area} · {t.categoria}
+                    {t.numeroPuesto ? ` · Puesto ${t.numeroPuesto}` : ""} · {t.area}
+                    {t.teamLeader ? ` · TL ${t.teamLeader}` : ""} · {t.categoria}
                   </p>
                 </div>
                 <div className="flex gap-2">

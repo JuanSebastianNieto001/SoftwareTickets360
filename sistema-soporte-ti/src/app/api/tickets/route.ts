@@ -28,6 +28,8 @@ export async function POST(request: NextRequest) {
       nombreSolicitante: data.nombreSolicitante,
       numeroPuesto: data.numeroPuesto,
       area: data.area,
+      // Ya viene normalizado por el schema: "" si el area no es Asesor.
+      teamLeader: data.teamLeader,
       categoria: data.categoria,
       descripcion: data.descripcion,
       // La prioridad no la elige quien reporta: sale de la categoria.

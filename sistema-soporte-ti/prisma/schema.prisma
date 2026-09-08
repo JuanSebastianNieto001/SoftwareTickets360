@@ -45,6 +45,11 @@ model Ticket {
   // sobre tickets creados antes de que existiera el campo.
   numeroPuesto       String    @default("")
   area               String    // Asesor | Administrativos
+  // Lider del asesor que reporta. Solo aplica cuando area = "Asesor";
+  // en Administrativos queda en "". Sirve para medir que team leader
+  // concentra mas tickets. Valores validos en TEAM_LEADERS
+  // (src/lib/ticket.ts), no es enum por la misma razon que estado/prioridad.
+  teamLeader         String    @default("")
   categoria          String
   descripcion        String
   estado             String    @default("PENDIENTE") // PENDIENTE | EN_PROCESO | CERRADO
@@ -70,4 +75,5 @@ model Ticket {
   @@index([estado])
   @@index([fechaCreacion])
   @@index([fechaCierre])
+  @@index([teamLeader])
 }

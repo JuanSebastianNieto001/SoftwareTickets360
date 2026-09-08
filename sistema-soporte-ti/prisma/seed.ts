@@ -26,6 +26,7 @@ async function main() {
         nombreSolicitante: "Colaborador de prueba",
         numeroPuesto: "12",
         area: "Asesor",
+        teamLeader: "Marko Velez",
         categoria: "Software",
         descripcion: "Ticket de ejemplo generado por el script de seed para verificar el panel.",
         estado: "PENDIENTE",

@@ -29,6 +29,11 @@ Implementa la propuesta descrita en `../PROPUESTA_SISTEMA_SOPORTE_TI/`.
 - Al **cerrar** el ticket (con la solucion aplicada) se registra la fecha de
   cierre, el tiempo de resolucion (desde el inicio) y el tiempo total (desde
   la creacion).
+- Si el area es **Asesor**, el formulario pide ademas el **team leader**
+  (lista en `TEAM_LEADERS`, `src/lib/ticket.ts`). En Administrativos no se
+  pide y el campo queda vacio; si el cliente manda uno igual, el servidor lo
+  descarta. En el panel se puede filtrar por team leader y el desplegable
+  muestra cuantos tickets lleva cada uno, para ver quien concentra mas.
 - La **prioridad no la elige quien reporta**: se asigna sola segun la
   categoria (tabla `PRIORIDAD_POR_CATEGORIA` en `src/lib/ticket.ts`).
   Hardware, Software, Red / Internet y Accesos y credenciales → ALTA;

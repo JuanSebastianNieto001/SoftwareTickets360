@@ -8,9 +8,15 @@
 // La prioridad no se pide: se deduce de la categoria elegida. Aqui solo se
 // muestra como anticipo; el valor que se guarda lo calcula el servidor.
 import { useState, FormEvent } from "react";
-import { AREAS, CATEGORIAS, prioridadParaCategoria } from "@/lib/ticket";
+import {
+  AREA_CON_TEAM_LEADER,
+  AREAS,
+  CATEGORIAS,
+  TEAM_LEADERS,
+  prioridadParaCategoria,
+} from "@/lib/ticket";
 import PrioridadBadge from "@/components/PrioridadBadge";
-import { IconUser, IconPuesto, IconPin, IconTag, IconMessage, IconSend } from "@/components/icons";
+import { IconUser, IconPuesto, IconPin, IconTag, IconPeople, IconMessage, IconSend } from "@/components/icons";
 
 type Estado =
   | { paso: "formulario" }
@@ -26,6 +32,9 @@ export default function TicketForm() {
   const [numeroPuesto, setNumeroPuesto] = useState("");
   // Se guarda solo para poder mostrar la prioridad que le va a corresponder.
   const [categoria, setCategoria] = useState("");
+  // El area se controla porque de ella depende que se pida o no el team leader.
+  const [area, setArea] = useState("");
+  const pideTeamLeader = area === AREA_CON_TEAM_LEADER;
 
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -36,6 +45,7 @@ export default function TicketForm() {
       nombreSolicitante: String(form.get("nombreSolicitante") ?? ""),
       numeroPuesto: String(form.get("numeroPuesto") ?? ""),
       area: String(form.get("area") ?? ""),
+      teamLeader: String(form.get("teamLeader") ?? ""),
       categoria: String(form.get("categoria") ?? ""),
       descripcion: String(form.get("descripcion") ?? ""),
     };
@@ -79,6 +89,7 @@ export default function TicketForm() {
             onClick={() => {
               setNumeroPuesto("");
               setCategoria("");
+              setArea("");
               setEstado({ paso: "formulario" });
             }}
           >
@@ -115,7 +126,14 @@ export default function TicketForm() {
             <IconPin className="h-4 w-4 text-brand-500" />
             Area
           </label>
-          <select className="input" id="area" name="area" required defaultValue="">
+          <select
+            className="input"
+            id="area"
+            name="area"
+            required
+            value={area}
+            onChange={(e) => setArea(e.target.value)}
+          >
             <option value="" disabled>
               Selecciona una opcion
             </option>
@@ -126,6 +144,28 @@ export default function TicketForm() {
             ))}
           </select>
         </div>
+
+        {/* Solo para asesores: sirve para saber que team leader concentra mas
+            tickets. En Administrativos ni se pide ni se guarda. */}
+        {pideTeamLeader && (
+          <div className="sm:col-span-2">
+            <label className="label" htmlFor="teamLeader">
+              <IconPeople className="h-4 w-4 text-brand-500" />
+              Team leader
+            </label>
+            <select className="input" id="teamLeader" name="teamLeader" required defaultValue="">
+              <option value="" disabled>
+                Selecciona tu team leader
+              </option>
+              {TEAM_LEADERS.map((lider) => (
+                <option key={lider} value={lider}>
+                  {lider}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div>
           <label className="label" htmlFor="numeroPuesto">
             <IconPuesto className="h-4 w-4 text-brand-500" /># del Puesto

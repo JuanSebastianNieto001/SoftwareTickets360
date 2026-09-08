@@ -50,6 +50,16 @@ export const CATEGORIAS = [
 ] as const;
 export const PRIORIDADES = ["BAJA", "MEDIA", "ALTA"] as const;
 
+/**
+ * Lideres de equipo de los asesores. Solo se pide cuando el area es
+ * "Asesor": en Administrativos el campo queda vacio. Permite ver que team
+ * leader concentra mas tickets de sus asesores.
+ */
+export const TEAM_LEADERS = ["Marko Velez", "Brahian Delgado", "Kelmer Santiago Pion"] as const;
+
+/** Area cuyos tickets llevan team leader. */
+export const AREA_CON_TEAM_LEADER = "Asesor";
+
 // Tipos derivados de los catalogos de arriba: al agregar un valor a una de
 // esas listas, el tipo se actualiza solo y TypeScript marca los lugares que
 // falte cubrir (por ejemplo PRIORIDAD_POR_CATEGORIA).
@@ -57,6 +67,7 @@ export type Estado = (typeof ESTADOS)[number];
 export type Area = (typeof AREAS)[number];
 export type Categoria = (typeof CATEGORIAS)[number];
 export type Prioridad = (typeof PRIORIDADES)[number];
+export type TeamLeader = (typeof TEAM_LEADERS)[number];
 
 /**
  * Prioridad que se asigna sola segun la categoria del problema. Aplica igual

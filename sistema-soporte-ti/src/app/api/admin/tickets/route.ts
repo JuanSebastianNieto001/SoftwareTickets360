@@ -20,6 +20,7 @@ const CAMPOS_LISTADO = {
   nombreSolicitante: true,
   numeroPuesto: true,
   area: true,
+  teamLeader: true,
   categoria: true,
   descripcion: true,
   estado: true,
@@ -38,6 +39,7 @@ const CAMPOS_LISTADO = {
 export async function GET(request: NextRequest) {
   const estado = request.nextUrl.searchParams.get("estado");
   const busqueda = request.nextUrl.searchParams.get("q")?.trim();
+  const teamLeader = request.nextUrl.searchParams.get("teamLeader")?.trim();
 
   const filtroEstado =
     estado === "ACTIVOS"
@@ -49,6 +51,7 @@ export async function GET(request: NextRequest) {
   const tickets = await prisma.ticket.findMany({
     where: {
       ...filtroEstado,
+      ...(teamLeader ? { teamLeader } : {}),
       ...(busqueda
         ? {
             OR: [
@@ -89,7 +92,20 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ tickets, contadores });
+  // Tickets por team leader sobre toda la tabla (no sobre el filtro actual):
+  // es justamente para comparar entre lideres. Los tickets sin leader
+  // (area Administrativos) quedan fuera.
+  const conteoPorLider = await prisma.ticket.groupBy({
+    by: ["teamLeader"],
+    where: { teamLeader: { not: "" } },
+    _count: { _all: true },
+  });
+
+  const porTeamLeader = Object.fromEntries(
+    conteoPorLider.map((fila) => [fila.teamLeader, fila._count._all])
+  );
+
+  return NextResponse.json({ tickets, contadores, porTeamLeader });
 }
 
 // DELETE /api/admin/tickets?confirmacion=ELIMINAR — borra TODOS los tickets de la base de datos.
