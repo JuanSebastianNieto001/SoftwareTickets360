@@ -52,6 +52,11 @@ Implementa la propuesta descrita en `../PROPUESTA_SISTEMA_SOPORTE_TI/`.
   pulsar "Ver solucion" y queda cacheada. Un ticket cerrado muestra solo
   **cuanto tomo resolverlo** (desde "Voy en camino" hasta el cierre); el
   tiempo de llegada y el total se siguen guardando y salen en el Excel.
+- El boton rojo del panel **solo borra los tickets finalizados**; los
+  abiertos no se tocan. Es a proposito: los abiertos son trabajo pendiente y
+  ademas no salen en el Excel, asi que borrarlos ahi los haria desaparecer
+  sin respaldo. Para eliminar uno abierto esta el borrado individual. El
+  boton pide escribir "ELIMINAR" y se deshabilita si no hay finalizados.
 - Exportacion a Excel de los tickets **finalizados** que haya en la base en
   ese momento (`/api/admin/export/excel`), con su solucion y sin filtrar por
   fecha: el flujo es exportar y luego vaciar, y a veces se vacia cada 2 o 3

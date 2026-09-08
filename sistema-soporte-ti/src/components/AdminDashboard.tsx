@@ -239,14 +239,19 @@ export default function AdminDashboard() {
     }
   }
 
-  // Borra TODOS los tickets. Pide escribir literalmente "ELIMINAR" (no solo
-  // aceptar/cancelar) para que un clic accidental no pueda vaciar la tabla;
-  // el backend (DELETE /api/admin/tickets) tambien exige ese mismo texto
-  // como query param, asi que la confirmacion esta duplicada en cliente y
-  // servidor, no es solo cosmetica.
-  async function vaciarBaseDeDatos() {
+  // Borra los tickets finalizados (los abiertos no se tocan). Pide escribir
+  // literalmente "ELIMINAR" (no solo aceptar/cancelar) para que un clic
+  // accidental no vacie el historial; el backend (DELETE /api/admin/tickets)
+  // exige el mismo texto como query param, asi que la confirmacion esta en
+  // cliente y servidor, no es solo cosmetica.
+  async function borrarFinalizados() {
+    const cantidad = contadores.CERRADO;
+    const cuantos = cantidad === 1 ? "1 ticket finalizado" : `los ${cantidad} tickets finalizados`;
     const escrito = window.prompt(
-      `Esto elimina TODOS los tickets (${tickets.length} en este momento) de forma permanente.\n\nEscribe ELIMINAR para confirmar:`
+      `Esto elimina de forma permanente ${cuantos}.\n` +
+        `Los tickets abiertos no se tocan.\n\n` +
+        `Descarga antes el Excel si necesitas conservarlos.\n\n` +
+        `Escribe ELIMINAR para confirmar:`
     );
     if (escrito !== "ELIMINAR") return;
 
@@ -255,9 +260,12 @@ export default function AdminDashboard() {
       const res = await fetch(`/api/admin/tickets?confirmacion=ELIMINAR`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      // Las soluciones cacheadas apuntan a tickets que ya no existen.
+      setDetalles({});
+      setDetalleAbierto(null);
       await cargar();
     } catch {
-      setError("No se pudo vaciar la base de datos.");
+      setError("No se pudieron borrar los tickets finalizados.");
     } finally {
       setProcesando(null);
     }
@@ -321,12 +329,19 @@ export default function AdminDashboard() {
           Exportar finalizados
         </a>
         <button
-          onClick={vaciarBaseDeDatos}
-          disabled={procesando === "__vaciar__"}
+          onClick={borrarFinalizados}
+          disabled={procesando === "__vaciar__" || contadores.CERRADO === 0}
+          title={
+            contadores.CERRADO === 0
+              ? "No hay tickets finalizados para borrar"
+              : "Borra los tickets finalizados; los abiertos no se tocan"
+          }
           className="btn-danger"
         >
           <IconTrash className="h-4 w-4" />
-          {procesando === "__vaciar__" ? "Vaciando..." : "Vaciar base de datos"}
+          {procesando === "__vaciar__"
+            ? "Borrando..."
+            : `Borrar finalizados (${contadores.CERRADO})`}
         </button>
       </div>
 

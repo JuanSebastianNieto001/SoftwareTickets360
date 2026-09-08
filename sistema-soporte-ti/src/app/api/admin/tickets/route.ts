@@ -108,8 +108,15 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ tickets, contadores, porTeamLeader });
 }
 
-// DELETE /api/admin/tickets?confirmacion=ELIMINAR — borra TODOS los tickets de la base de datos.
-// Exige el parametro de confirmacion exacto para evitar borrados accidentales.
+// DELETE /api/admin/tickets?confirmacion=ELIMINAR — borra los tickets
+// FINALIZADOS. Exige el parametro de confirmacion exacto para evitar
+// borrados accidentales.
+//
+// A proposito no borra los tickets abiertos: son trabajo pendiente y ademas
+// no salen en el Excel (que exporta solo finalizados), asi que borrarlos
+// aqui los haria desaparecer sin ningun respaldo. Para eliminar uno abierto
+// esta el borrado individual, que es una decision consciente sobre un
+// ticket concreto.
 export async function DELETE(request: NextRequest) {
   const confirmacion = request.nextUrl.searchParams.get("confirmacion");
   if (confirmacion !== "ELIMINAR") {
@@ -119,10 +126,10 @@ export async function DELETE(request: NextRequest) {
     );
   }
 
-  const resultado = await prisma.ticket.deleteMany({});
+  const resultado = await prisma.ticket.deleteMany({ where: { estado: "CERRADO" } });
 
   return NextResponse.json({
     eliminados: resultado.count,
-    mensaje: `Se eliminaron ${resultado.count} tickets.`,
+    mensaje: `Se eliminaron ${resultado.count} tickets finalizados.`,
   });
 }
