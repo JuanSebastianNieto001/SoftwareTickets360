@@ -2,16 +2,25 @@
 
 // Panel del administrador (src/app/admin/page.tsx): lista, filtra, avanza
 // el estado (PENDIENTE -> EN_PROCESO -> CERRADO), cierra con solucion y
-// elimina tickets. Se refresca solo con polling (ver INTERVALO_ACTUALIZACION_MS)
-// en vez de websockets/SSE, que hubiera sido mas trabajo para un MVP con
-// un solo admin viendo la pantalla.
+// elimina tickets. Se refresca solo con polling en vez de websockets/SSE,
+// que hubiera sido mas trabajo para un MVP con un solo admin viendo la
+// pantalla.
+//
+// El polling esta acotado a proposito, porque el plan gratuito de Supabase
+// tiene 5 GB de egress al mes y recargar la lista completa cada pocos
+// segundos se los come:
+//   - la vista inicial solo trae los ACTIVOS, no el historial completo;
+//   - el listado no incluye la solucion (el campo mas pesado), se pide
+//     aparte al abrir un ticket;
+//   - no se consulta si la pestana no esta visible;
+//   - en Finalizados no se consulta en bucle: es historial, no cambia solo.
 import { useCallback, useEffect, useRef, useState } from "react";
 import EstadoBadge from "@/components/EstadoBadge";
 import PrioridadBadge from "@/components/PrioridadBadge";
 import { IconTrash } from "@/components/icons";
 import { formatearFechaHora, formatearMinutos } from "@/lib/ticket";
 
-const INTERVALO_ACTUALIZACION_MS = 5000;
+const INTERVALO_ACTUALIZACION_MS = 20000;
 // Espera antes de buscar mientras se escribe, para no lanzar una consulta a
 // la base por cada tecla.
 const RETARDO_BUSQUEDA_MS = 350;
@@ -20,6 +29,7 @@ type Contadores = { PENDIENTE: number; EN_PROCESO: number; CERRADO: number };
 
 const CONTADORES_VACIOS: Contadores = { PENDIENTE: 0, EN_PROCESO: 0, CERRADO: 0 };
 
+/** Lo que trae el listado. Sin `solucion`: esa llega en TicketDetalle. */
 type Ticket = {
   id: string;
   codigoTicket: string;
@@ -33,24 +43,28 @@ type Ticket = {
   fechaCreacion: string;
   fechaInicio: string | null;
   fechaCierre: string | null;
-  tiempoLlegada: number | null;
   tiempoResolucion: number | null;
-  tiempoTotal: number | null;
-  solucion: string | null;
   admin: { nombre: string } | null;
 };
 
+/** Lo que se pide bajo demanda al abrir un ticket finalizado. */
+type TicketDetalle = { solucion: string | null };
+
 const FILTROS = [
-  { valor: "TODOS", etiqueta: "Todos" },
+  { valor: "ACTIVOS", etiqueta: "Activos" },
   { valor: "PENDIENTE", etiqueta: "Pendientes" },
   { valor: "EN_PROCESO", etiqueta: "En proceso" },
-  { valor: "CERRADO", etiqueta: "Cerrados" },
+  { valor: "CERRADO", etiqueta: "Finalizados" },
 ] as const;
 
 export default function AdminDashboard() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [contadores, setContadores] = useState<Contadores>(CONTADORES_VACIOS);
-  const [filtro, setFiltro] = useState<(typeof FILTROS)[number]["valor"]>("TODOS");
+  const [filtro, setFiltro] = useState<(typeof FILTROS)[number]["valor"]>("ACTIVOS");
+  // Soluciones ya descargadas, por id de ticket. Se cachean para no volver a
+  // pedirlas cada vez que se abre y cierra el mismo ticket.
+  const [detalles, setDetalles] = useState<Record<string, TicketDetalle>>({});
+  const [detalleAbierto, setDetalleAbierto] = useState<string | null>(null);
   // `busqueda` es lo que se ve en el input; `busquedaAplicada` es lo que
   // realmente se manda al servidor, con retardo (ver RETARDO_BUSQUEDA_MS).
   const [busqueda, setBusqueda] = useState("");
@@ -66,8 +80,10 @@ export default function AdminDashboard() {
     // Solo mostramos "Cargando..." la primera vez; las actualizaciones
     // automaticas en segundo plano no deben hacer parpadear la lista.
     if (!primeraCargaHecha.current) setCargando(true);
-    const params = new URLSearchParams();
-    if (filtro !== "TODOS") params.set("estado", filtro);
+    // Siempre se manda un estado: ya no hay vista "Todos" que traiga tambien
+    // el historial completo. La inicial (ACTIVOS) solo pide lo que esta sin
+    // resolver, que es lo unico que cambia mientras el panel esta abierto.
+    const params = new URLSearchParams({ estado: filtro });
     if (busquedaAplicada) params.set("q", busquedaAplicada);
     try {
       const res = await fetch(`/api/admin/tickets?${params.toString()}`, { cache: "no-store" });
@@ -93,9 +109,42 @@ export default function AdminDashboard() {
   useEffect(() => {
     primeraCargaHecha.current = false;
     cargar();
-    const intervalo = setInterval(cargar, INTERVALO_ACTUALIZACION_MS);
-    return () => clearInterval(intervalo);
-  }, [cargar]);
+
+    // Finalizados es historial: no cambia por su cuenta, no tiene sentido
+    // reconsultarlo en bucle. Se refresca al entrar y despues de cada accion.
+    if (filtro === "CERRADO") return;
+
+    let intervalo: ReturnType<typeof setInterval> | null = null;
+
+    const arrancar = () => {
+      if (intervalo === null) intervalo = setInterval(cargar, INTERVALO_ACTUALIZACION_MS);
+    };
+    const detener = () => {
+      if (intervalo !== null) {
+        clearInterval(intervalo);
+        intervalo = null;
+      }
+    };
+
+    // Con la pestana en segundo plano nadie esta mirando: se deja de
+    // consultar y se retoma (con una carga inmediata) al volver.
+    const alCambiarVisibilidad = () => {
+      if (document.visibilityState === "visible") {
+        cargar();
+        arrancar();
+      } else {
+        detener();
+      }
+    };
+
+    if (document.visibilityState === "visible") arrancar();
+    document.addEventListener("visibilitychange", alCambiarVisibilidad);
+
+    return () => {
+      detener();
+      document.removeEventListener("visibilitychange", alCambiarVisibilidad);
+    };
+  }, [cargar, filtro]);
 
   async function iniciarTicket(id: string) {
     setProcesando(id);
@@ -134,6 +183,29 @@ export default function AdminDashboard() {
       setError("No se pudo cerrar el ticket.");
     } finally {
       setProcesando(null);
+    }
+  }
+
+  /**
+   * Abre o cierra el detalle de un ticket finalizado. La solucion no viene en
+   * el listado, se pide aqui la primera vez y queda cacheada en `detalles`.
+   */
+  async function alternarDetalle(id: string) {
+    if (detalleAbierto === id) {
+      setDetalleAbierto(null);
+      return;
+    }
+    setDetalleAbierto(id);
+    if (detalles[id]) return;
+
+    try {
+      const res = await fetch(`/api/admin/tickets/${id}`, { cache: "no-store" });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setDetalles((previos) => ({ ...previos, [id]: { solucion: data.ticket.solucion } }));
+    } catch {
+      setError("No se pudo cargar la solucion del ticket.");
+      setDetalleAbierto(null);
     }
   }
 
@@ -220,10 +292,10 @@ export default function AdminDashboard() {
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
         />
-        {/* Exporta todo lo que haya en la base, no solo lo del dia: la idea es
-            exportar y despues vaciar, y a veces se vacia cada 2 o 3 dias. */}
+        {/* Descarga los finalizados con su solucion (todos los que haya en la
+            base, sin filtro de fecha: a veces se vacia cada 2 o 3 dias). */}
         <a href="/api/admin/export/excel" className="btn-secondary ml-auto">
-          Exportar Excel
+          Exportar finalizados
         </a>
         <button
           onClick={vaciarBaseDeDatos}
@@ -285,6 +357,11 @@ export default function AdminDashboard() {
                       {ticketAbierto === t.id ? "Cancelar" : "Cerrar ticket"}
                     </button>
                   )}
+                  {t.estado === "CERRADO" && (
+                    <button className="btn-secondary" onClick={() => alternarDetalle(t.id)}>
+                      {detalleAbierto === t.id ? "Ocultar solucion" : "Ver solucion"}
+                    </button>
+                  )}
                   <button
                     onClick={() => eliminarTicket(t.id, t.codigoTicket)}
                     disabled={procesando === t.id}
@@ -318,9 +395,16 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {t.estado === "CERRADO" && t.solucion && (
+              {/* La solucion no viaja en el listado: se descarga al abrirla. */}
+              {t.estado === "CERRADO" && detalleAbierto === t.id && (
                 <p className="mt-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
-                  <strong>Solucion:</strong> {t.solucion}
+                  {detalles[t.id] ? (
+                    <>
+                      <strong>Solucion:</strong> {detalles[t.id].solucion || "(sin solucion registrada)"}
+                    </>
+                  ) : (
+                    "Cargando solucion..."
+                  )}
                 </p>
               )}
 

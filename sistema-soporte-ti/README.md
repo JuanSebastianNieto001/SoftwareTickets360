@@ -35,19 +35,47 @@ Implementa la propuesta descrita en `../PROPUESTA_SISTEMA_SOPORTE_TI/`.
   Correo electronico → MEDIA; Impresoras y Otro → BAJA. Aplica igual para
   las dos areas. El servidor la calcula e ignora cualquier prioridad que
   venga en la peticion.
-- En el panel, un ticket cerrado muestra solo **cuanto tomo resolverlo**
-  (desde "Voy en camino" hasta el cierre). El tiempo de llegada y el total
-  se siguen guardando y salen en el Excel.
-- Exportacion a Excel de **todos** los tickets que haya en la base en ese
-  momento (`/api/admin/export/excel`), sin filtrar por fecha ni por estado:
-  el flujo es exportar y luego vaciar, y a veces se vacia cada 2 o 3 dias.
-  Boton disponible directamente en el panel.
+- El panel tiene dos zonas: **Activos** (pendientes + en proceso), que es la
+  vista inicial, y **Finalizados**, el historial. Al cerrar un ticket
+  desaparece de Activos y pasa a Finalizados.
+- En Finalizados la solucion **no** se muestra de entrada: se descarga al
+  pulsar "Ver solucion" y queda cacheada. Un ticket cerrado muestra solo
+  **cuanto tomo resolverlo** (desde "Voy en camino" hasta el cierre); el
+  tiempo de llegada y el total se siguen guardando y salen en el Excel.
+- Exportacion a Excel de los tickets **finalizados** que haya en la base en
+  ese momento (`/api/admin/export/excel`), con su solucion y sin filtrar por
+  fecha: el flujo es exportar y luego vaciar, y a veces se vacia cada 2 o 3
+  dias. Los tickets aun abiertos no se exportan.
 - Limpieza progresiva: `POST /api/admin/limpieza?dias=30` borra tickets
   cerrados con mas de N dias (para no saturar el plan gratuito de la base de
   datos). Pensado para llamarse desde una tarea programada (cron) o
   manualmente.
 - Seguimiento publico de un ticket por su codigo en `/seguimiento`, sin
   exponer datos del solicitante.
+
+## Consumo del plan gratuito
+
+El plan gratuito de Supabase da **500 MB de base** y **5 GB de egress al
+mes**. Medido sobre datos reales, un ticket ocupa **~609 bytes** con
+indices: caben del orden de **800.000 tickets**, asi que el disco nunca es
+el limite.
+
+El limite real es el egress, y lo marca el refresco automatico del panel.
+Por eso el panel esta deliberadamente conservador:
+
+- la vista inicial solo trae los tickets **activos**, no el historial;
+- el listado **no incluye la solucion** (el campo mas pesado); se pide
+  aparte al abrir un ticket finalizado, y queda cacheada;
+- el refresco es cada **20 s**, no cada 5;
+- **se detiene** cuando la pestana no esta visible, y recarga al volver;
+- en **Finalizados no hay refresco en bucle**: es historial, no cambia solo.
+
+Con eso, el panel abierto 8 h diarias y ~10 tickets abiertos a la vez gasta
+unos **130 MB al mes (2,5 % del limite)**. Antes de estos ajustes, con 100
+tickets acumulados se pasaba del limite (172 %).
+
+Si algun dia se cambia el intervalo o se vuelve a cargar el historial en la
+vista por defecto, revisar este calculo primero.
 
 ## Puesta en marcha (desarrollo local)
 

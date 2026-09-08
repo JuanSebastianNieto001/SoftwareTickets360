@@ -9,32 +9,26 @@ import { formatearMinutos } from "@/lib/ticket";
 // al momento de compilar). Tiene que consultar la base en cada descarga.
 export const dynamic = "force-dynamic";
 
-// Estados legibles para la columna del Excel (en la base se guardan en mayuscula fija).
-const ETIQUETA_ESTADO: Record<string, string> = {
-  PENDIENTE: "Pendiente",
-  EN_PROCESO: "En proceso",
-  CERRADO: "Cerrado",
-};
-
 // GET /api/admin/export/excel
-// Exporta TODOS los tickets que haya en la base de datos en este momento,
-// sin filtrar por fecha ni por estado.
+// Exporta los tickets FINALIZADOS (cerrados) que haya en la base en este
+// momento, con su solucion, sin filtrar por fecha.
 //
-// Antes exportaba solo los cerrados del dia. Se cambio porque el flujo real
-// es: exportar y despues vaciar la base. Si pasan dos o tres dias sin
-// vaciarla, el Excel igual tiene que traer todo lo acumulado, y tambien los
-// que quedaron abiertos, para que al vaciar no se pierda ningun registro.
+// Sin filtro de fecha porque el flujo real es exportar y despues vaciar: si
+// pasan dos o tres dias sin vaciar, la descarga igual trae todo lo cerrado
+// que se haya acumulado. Los tickets todavia abiertos no se exportan: son
+// trabajo pendiente, no historial.
 export async function GET() {
   const tickets = await prisma.ticket.findMany({
+    where: { estado: "CERRADO" },
     include: { admin: { select: { nombre: true } } },
-    orderBy: { fechaCreacion: "asc" },
+    orderBy: { fechaCierre: "asc" },
   });
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Sistema de Gestion de Soportes TI";
   workbook.created = new Date();
 
-  const hoja = workbook.addWorksheet("Tickets", {
+  const hoja = workbook.addWorksheet("Tickets finalizados", {
     views: [{ state: "frozen", ySplit: 1 }],
   });
 
@@ -45,8 +39,6 @@ export async function GET() {
     { header: "Area", key: "area", width: 18 },
     { header: "Categoria", key: "categoria", width: 20 },
     { header: "Prioridad", key: "prioridad", width: 12 },
-    // El export ya no es solo de cerrados, asi que hay que poder distinguirlos.
-    { header: "Estado", key: "estado", width: 14 },
     { header: "Descripcion", key: "descripcion", width: 40 },
     { header: "Solucion", key: "solucion", width: 40 },
     { header: "Atendido por", key: "atendidoPor", width: 22 },
@@ -75,7 +67,6 @@ export async function GET() {
       area: t.area,
       categoria: t.categoria,
       prioridad: t.prioridad,
-      estado: ETIQUETA_ESTADO[t.estado] ?? t.estado,
       descripcion: t.descripcion,
       solucion: t.solucion ?? "",
       atendidoPor: t.admin?.nombre ?? "",
@@ -95,7 +86,7 @@ export async function GET() {
   const buffer = await workbook.xlsx.writeBuffer();
   // La fecha del nombre es la de descarga, para poder guardar varios exports
   // seguidos sin que se pisen entre ellos.
-  const nombreArchivo = `tickets_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const nombreArchivo = `tickets_cerrados_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
   return new NextResponse(buffer, {
     status: 200,

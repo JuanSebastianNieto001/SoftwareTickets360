@@ -1,24 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-// Orden de la vista de admin: tickets activos (nuevos primero) arriba,
-// los ya cerrados abajo. Se ordena en JS despues del fetch (no con
-// `orderBy` de Prisma) porque `estado` es un String plano, no un enum
+// Orden de la vista de admin: dentro de los activos, primero los pendientes
+// y luego los que ya estan en proceso. Se ordena en JS despues del fetch (no
+// con `orderBy` de Prisma) porque `estado` es un String plano, no un enum
 // nativo de Postgres (ver comentario en prisma/schema.prisma), asi que
 // Prisma no tiene forma de ordenar por una secuencia custom como esta sin
 // caer a SQL crudo.
 const ORDEN_ESTADO: Record<string, number> = { PENDIENTE: 0, EN_PROCESO: 1, CERRADO: 2 };
 
-// GET /api/admin/tickets?estado=PENDIENTE — listado para el panel. Protegido por middleware.
+// Campos que necesita la tarjeta del listado. Se piden explicitamente para
+// NO traer `solucion`, que es un texto largo y solo se ve al abrir un ticket
+// finalizado: con el polling cada pocos segundos, mandarla en cada respuesta
+// multiplicaba el trafico sin que nadie la estuviera leyendo.
+// La solucion se pide aparte en GET /api/admin/tickets/:id.
+const CAMPOS_LISTADO = {
+  id: true,
+  codigoTicket: true,
+  nombreSolicitante: true,
+  numeroPuesto: true,
+  area: true,
+  categoria: true,
+  descripcion: true,
+  estado: true,
+  prioridad: true,
+  fechaCreacion: true,
+  fechaInicio: true,
+  fechaCierre: true,
+  tiempoResolucion: true,
+  admin: { select: { nombre: true } },
+} as const;
+
+// GET /api/admin/tickets?estado=ACTIVOS — listado para el panel. Protegido por middleware.
+//
+// `estado` acepta ACTIVOS (pendientes + en proceso, que es la vista inicial),
+// o uno de PENDIENTE / EN_PROCESO / CERRADO. Sin parametro trae todo.
 export async function GET(request: NextRequest) {
   const estado = request.nextUrl.searchParams.get("estado");
   const busqueda = request.nextUrl.searchParams.get("q")?.trim();
 
+  const filtroEstado =
+    estado === "ACTIVOS"
+      ? { estado: { in: ["PENDIENTE", "EN_PROCESO"] } }
+      : estado && ["PENDIENTE", "EN_PROCESO", "CERRADO"].includes(estado)
+        ? { estado }
+        : {};
+
   const tickets = await prisma.ticket.findMany({
     where: {
-      ...(estado && ["PENDIENTE", "EN_PROCESO", "CERRADO"].includes(estado)
-        ? { estado: estado as "PENDIENTE" | "EN_PROCESO" | "CERRADO" }
-        : {}),
+      ...filtroEstado,
       ...(busqueda
         ? {
             OR: [
@@ -30,12 +60,17 @@ export async function GET(request: NextRequest) {
           }
         : {}),
     },
-    include: { admin: { select: { nombre: true } } },
+    select: CAMPOS_LISTADO,
   });
 
   tickets.sort((a, b) => {
     const diffEstado = (ORDEN_ESTADO[a.estado] ?? 99) - (ORDEN_ESTADO[b.estado] ?? 99);
     if (diffEstado !== 0) return diffEstado;
+    // Los finalizados se ordenan por cierre mas reciente (es un historial);
+    // los activos, por creacion mas reciente.
+    if (a.estado === "CERRADO" && b.estado === "CERRADO") {
+      return (b.fechaCierre?.getTime() ?? 0) - (a.fechaCierre?.getTime() ?? 0);
+    }
     return b.fechaCreacion.getTime() - a.fechaCreacion.getTime();
   });
 
