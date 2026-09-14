@@ -131,6 +131,16 @@ export function IconAlertTriangle({ className = base }: IconProps) {
   );
 }
 
+// Lapiz de "editar". Lo usa el boton que cambia el nombre del administrador
+// en el panel.
+export function IconPencil({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487a2.121 2.121 0 1 1 3 3L7.5 19.85l-4.5 1.5 1.5-4.5L16.862 4.487Z" />
+    </svg>
+  );
+}
+
 export function IconLogout({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>

@@ -6,6 +6,7 @@
 import { obtenerSesionActual } from "@/lib/auth";
 import AdminDashboard from "@/components/AdminDashboard";
 import BotonCerrarSesion from "@/components/BotonCerrarSesion";
+import NombreAdmin from "@/components/NombreAdmin";
 import SiteHeader from "@/components/SiteHeader";
 
 export default async function AdminPage() {
@@ -18,7 +19,9 @@ export default async function AdminPage() {
       <main className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6">
           <h1 className="font-display text-2xl font-bold text-brand-950">Panel de soporte</h1>
-          <p className="text-sm text-slate-500">Hola, {sesion?.nombre ?? "administrador"}</p>
+          {/* El nombre se puede cambiar desde aqui: es el mismo que queda
+              como "Atendido por" en los tickets que cierra este usuario. */}
+          <NombreAdmin nombreInicial={sesion?.nombre ?? "administrador"} />
         </div>
 
         <AdminDashboard />

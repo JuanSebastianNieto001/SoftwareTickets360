@@ -15,7 +15,7 @@
 // mensajes en rojo debajo de cada campo.
 import { useState, FormEvent } from "react";
 import {
-  AREA_CON_TEAM_LEADER,
+  AREA_ASESOR,
   AREAS,
   CATEGORIAS,
   TEAM_LEADERS,
@@ -41,12 +41,15 @@ export default function TicketForm() {
   const [numeroPuesto, setNumeroPuesto] = useState("");
   // Se guarda solo para poder mostrar la prioridad que le va a corresponder.
   const [categoria, setCategoria] = useState("");
-  // El area se controla porque de ella depende que se pida o no el team leader.
+  // El area se controla porque de ella dependen los campos que solo aplican
+  // a los asesores (team leader y numero de puesto).
   const [area, setArea] = useState("");
   // Mensaje de error por campo. Se llena al intentar enviar y cada uno se
   // borra en cuanto el usuario corrige ese campo.
   const [errores, setErrores] = useState<Record<string, string>>({});
-  const pideTeamLeader = area === AREA_CON_TEAM_LEADER;
+  // Team leader y numero de puesto solo se piden a los asesores: en
+  // Administrativos ni se muestran ni se exigen.
+  const esAsesor = area === AREA_ASESOR;
 
   const limpiarError = (campo: string) =>
     setErrores((previos) => (previos[campo] ? { ...previos, [campo]: "" } : previos));
@@ -80,8 +83,8 @@ export default function TicketForm() {
     // Zod no ejecuta el superRefine (la regla del team leader) cuando algun
     // otro campo ya fallo: si dependieramos solo de Zod, ese aviso saldria
     // recien en un segundo intento en vez de junto con los demas.
-    const requeridos = ["nombreSolicitante", "area", "numeroPuesto", "categoria", "descripcion"];
-    if (pideTeamLeader) requeridos.push("teamLeader");
+    const requeridos = ["nombreSolicitante", "area", "categoria", "descripcion"];
+    if (esAsesor) requeridos.push("teamLeader", "numeroPuesto");
     for (const campo of requeridos) {
       if (String(payload[campo as keyof typeof payload] ?? "").trim() === "") {
         nuevos[campo] = OBLIGATORIO;
@@ -205,9 +208,11 @@ export default function TicketForm() {
             onChange={(e) => {
               setArea(e.target.value);
               limpiarError("area");
-              // Al cambiar de area el team leader deja de aplicar (o pasa a
-              // pedirse): en cualquier caso su error anterior ya no vale.
+              // Al cambiar de area el team leader y el puesto dejan de aplicar
+              // (o pasan a pedirse): en cualquier caso sus errores anteriores
+              // ya no valen.
               limpiarError("teamLeader");
+              limpiarError("numeroPuesto");
             }}
           >
             <option value="" disabled>
@@ -224,7 +229,7 @@ export default function TicketForm() {
 
         {/* Solo para asesores: sirve para saber que team leader concentra mas
             tickets. En Administrativos ni se pide ni se guarda. */}
-        {pideTeamLeader && (
+        {esAsesor && (
           <div className="sm:col-span-2">
             <label className="label" htmlFor="teamLeader">
               <IconPeople className="h-4 w-4 text-brand-500" />
@@ -252,28 +257,35 @@ export default function TicketForm() {
           </div>
         )}
 
-        <div>
-          <label className="label" htmlFor="numeroPuesto">
-            <IconPuesto className="h-4 w-4 text-brand-500" /># del Puesto
-          </label>
-          <input
-            className={claseCampo("numeroPuesto")}
-            id="numeroPuesto"
-            name="numeroPuesto"
-            inputMode="numeric"
-            placeholder="Ej. 12"
-            required
-            maxLength={10}
-            value={numeroPuesto}
-            aria-invalid={Boolean(errores.numeroPuesto)}
-            onChange={(e) => {
-              setNumeroPuesto(e.target.value.replace(/[^0-9]/g, ""));
-              limpiarError("numeroPuesto");
-            }}
-          />
-          {mensajeError("numeroPuesto")}
-        </div>
-        <div>
+        {/* Tambien solo para asesores: los administrativos no reportan desde
+            un puesto numerado de la operacion. */}
+        {esAsesor && (
+          <div>
+            <label className="label" htmlFor="numeroPuesto">
+              <IconPuesto className="h-4 w-4 text-brand-500" /># del Puesto
+            </label>
+            <input
+              className={claseCampo("numeroPuesto")}
+              id="numeroPuesto"
+              name="numeroPuesto"
+              inputMode="numeric"
+              placeholder="Ej. 12"
+              required
+              maxLength={10}
+              value={numeroPuesto}
+              aria-invalid={Boolean(errores.numeroPuesto)}
+              onChange={(e) => {
+                setNumeroPuesto(e.target.value.replace(/[^0-9]/g, ""));
+                limpiarError("numeroPuesto");
+              }}
+            />
+            {mensajeError("numeroPuesto")}
+          </div>
+        )}
+
+        {/* Sin el campo de puesto al lado, la categoria queda sola en su fila:
+            se estira a lo ancho para que no quede media fila vacia. */}
+        <div className={esAsesor ? undefined : "sm:col-span-2"}>
           <label className="label" htmlFor="categoria">
             <IconTag className="h-4 w-4 shrink-0 text-brand-500" />
             Categoria

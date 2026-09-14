@@ -57,8 +57,13 @@ export const PRIORIDADES = ["BAJA", "MEDIA", "ALTA"] as const;
  */
 export const TEAM_LEADERS = ["Marko Velez", "Brahian Delgado", "Kelmer Santiago Pion"] as const;
 
-/** Area cuyos tickets llevan team leader. */
-export const AREA_CON_TEAM_LEADER = "Asesor";
+/**
+ * Area cuyos tickets llevan team leader y numero de puesto. Los de
+ * Administrativos no: no trabajan en un puesto numerado de la operacion ni
+ * dependen de un team leader, asi que esos dos campos ni se piden en el
+ * formulario ni se guardan (quedan en "").
+ */
+export const AREA_ASESOR = "Asesor";
 
 // Tipos derivados de los catalogos de arriba: al agregar un valor a una de
 // esas listas, el tipo se actualiza solo y TypeScript marca los lugares que
