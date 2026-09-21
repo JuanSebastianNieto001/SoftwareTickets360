@@ -55,7 +55,12 @@ export const PRIORIDADES = ["BAJA", "MEDIA", "ALTA"] as const;
  * "Asesor": en Administrativos el campo queda vacio. Permite ver que team
  * leader concentra mas tickets de sus asesores.
  */
-export const TEAM_LEADERS = ["Marko Velez", "Brahian Delgado", "Kelmer Santiago Pion"] as const;
+export const TEAM_LEADERS = [
+  "Marko Velez",
+  "Brahian Delgado",
+  "Kelmer Santiago Pion",
+  "Carlos Fernando Velez",
+] as const;
 
 /**
  * Area cuyos tickets llevan team leader y numero de puesto. Los de
