@@ -61,22 +61,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
   });
   const justificacion = parsed.data.justificacionSla ?? "";
 
+  // Solo el tiempo de solucion frena el cierre. La demora en llegar al puesto
+  // queda registrada y se ve en el panel, pero no se pide explicarla: depende
+  // de la fila de tickets, no de quien atiende este.
   if (sla.general === "FUERA" && justificacion.length < MIN_CARACTERES_JUSTIFICACION) {
-    const excedidas: string[] = [];
-    if (sla.primeraRespuesta === "FUERA") {
-      excedidas.push(
-        `primera respuesta ${formatearMinutos(tiempoLlegada)} (meta ${formatearMinutos(sla.metaPrimeraRespuesta)})`
-      );
-    }
-    if (sla.solucion === "FUERA") {
-      excedidas.push(
-        `solucion ${formatearMinutos(tiempoResolucion)} (meta ${formatearMinutos(sla.metaSolucion)})`
-      );
-    }
     return NextResponse.json(
       {
         error:
-          `Este ticket queda fuera del SLA de prioridad ${ticket.prioridad}: ${excedidas.join(" y ")}. ` +
+          `Este ticket queda fuera del SLA de prioridad ${ticket.prioridad}: la solucion tomo ` +
+          `${formatearMinutos(tiempoResolucion)} y la meta es ${formatearMinutos(sla.metaSolucion)}. ` +
           `Explica por que tomo mas tiempo (minimo ${MIN_CARACTERES_JUSTIFICACION} caracteres) para poder cerrarlo.`,
         sla,
       },

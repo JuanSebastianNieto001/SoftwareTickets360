@@ -185,9 +185,22 @@ export function slaParaPrioridad(prioridad: string): AcuerdoNivelServicio {
 export type ResultadoSla = "DENTRO" | "FUERA" | "SIN_META";
 
 export type EvaluacionSla = {
+  /**
+   * Como le fue al tramo creacion -> "Voy en camino". Es informativo: se
+   * muestra y se exporta, pero NO decide el veredicto (ver `general`).
+   */
   primeraRespuesta: ResultadoSla;
   solucion: ResultadoSla;
-  /** FUERA si cualquiera de las dos metas se incumplio. */
+  /**
+   * Veredicto del ticket. Lo define **solo el tiempo de solucion**, es decir
+   * el tramo "Voy en camino" -> cierre, que es lo que el area de soporte
+   * controla una vez que llega al puesto.
+   *
+   * La demora en responder se sigue midiendo y mostrando, pero no marca el
+   * ticket como incumplido: un caso atendido en 1 minuto no deberia salir en
+   * rojo porque el reporte espero en la fila. Si algun dia se quiere que
+   * tambien cuente, este es el unico punto a cambiar.
+   */
   general: ResultadoSla;
   metaPrimeraRespuesta: number | null;
   metaSolucion: number | null;
@@ -220,12 +233,9 @@ export function evaluarSla(
   const primeraRespuesta = compararConMeta(tiempos.minutosPrimeraRespuesta, sla.minutosPrimeraRespuesta);
   const solucion = compararConMeta(tiempos.minutosSolucion, sla.minutosSolucion);
 
-  const general: ResultadoSla =
-    primeraRespuesta === "FUERA" || solucion === "FUERA"
-      ? "FUERA"
-      : primeraRespuesta === "DENTRO" || solucion === "DENTRO"
-        ? "DENTRO"
-        : "SIN_META";
+  // El veredicto es el del tramo de solucion, tal cual. Ver el comentario de
+  // `general` en EvaluacionSla para el porque.
+  const general: ResultadoSla = solucion;
 
   const excesoSolucion =
     solucion === "FUERA" && sla.minutosSolucion !== null

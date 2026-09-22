@@ -626,7 +626,11 @@ export default function AdminDashboard() {
                   </span>
                   {/* Veredicto contra la meta de su prioridad. Se calcula al
                       vuelo con los tiempos guardados, no se lee de la base. */}
-                  <SlaBadge sla={slaDeCerrado(t)} minutosSolucion={t.tiempoResolucion} />
+                  <SlaBadge
+                    sla={slaDeCerrado(t)}
+                    minutosSolucion={t.tiempoResolucion}
+                    minutosPrimeraRespuesta={t.tiempoLlegada}
+                  />
                 </div>
               )}
 
@@ -664,7 +668,11 @@ export default function AdminDashboard() {
                     <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         <span className="text-slate-500">Si lo cierras ahora:</span>
-                        <SlaBadge sla={sla} minutosSolucion={minutosSolucion} />
+                        <SlaBadge
+                          sla={sla}
+                          minutosSolucion={minutosSolucion}
+                          minutosPrimeraRespuesta={t.tiempoLlegada}
+                        />
                       </div>
 
                       <label className="label" htmlFor={`solucion-${t.id}`}>

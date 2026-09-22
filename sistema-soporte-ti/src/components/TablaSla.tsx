@@ -61,9 +61,12 @@ export default function TablaSla() {
           </table>
 
           <p className="mt-3 text-xs text-slate-500">
-            Los tiempos de solucion se miden desde que se marca &quot;Voy en camino&quot; hasta que se
-            cierra el ticket, no desde que el usuario reporta. Cuando un cierre supera su meta, el
-            sistema pide explicar por que tomo mas tiempo.
+            El tiempo de solucion se mide desde que se marca &quot;Voy en camino&quot; hasta que se
+            cierra el ticket, no desde que el usuario reporta, y es el unico que define si un ticket
+            queda dentro o fuera del SLA: cuando un cierre supera su meta, el sistema pide explicar
+            por que tomo mas tiempo. El tiempo de primera respuesta (desde que se reporta hasta que
+            se marca &quot;Voy en camino&quot;) se mide y se muestra, pero no marca el ticket como
+            incumplido, porque depende de la fila de tickets y no de quien lo atiende.
           </p>
         </div>
       )}

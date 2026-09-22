@@ -4,7 +4,10 @@
 // confirmar que va a quedar fuera de tiempo.
 //
 // El veredicto no se lee de la base: lo calcula evaluarSla() con la prioridad
-// del ticket y sus tiempos (ver src/lib/ticket.ts).
+// del ticket y sus tiempos (ver src/lib/ticket.ts), y mira solo el tramo
+// "Voy en camino" -> cierre. El tiempo de primera respuesta se muestra al
+// lado como dato, en gris, porque no decide el resultado: en ambar si se
+// paso de su meta, para que se note sin leerse como un incumplimiento.
 import { formatearMinutos, type EvaluacionSla } from "@/lib/ticket";
 
 const CLASES: Record<EvaluacionSla["general"], string> = {
@@ -22,12 +25,15 @@ const ETIQUETAS: Record<EvaluacionSla["general"], string> = {
 export default function SlaBadge({
   sla,
   minutosSolucion,
+  minutosPrimeraRespuesta,
   detalle = true,
 }: {
   sla: EvaluacionSla;
   /** Tiempo real de solucion, para el texto "12 min de 10 min". */
   minutosSolucion: number | null | undefined;
-  /** false deja solo el chip, sin la comparacion contra la meta. */
+  /** Tiempo real hasta "Voy en camino". Solo informativo. */
+  minutosPrimeraRespuesta?: number | null;
+  /** false deja solo el chip, sin la comparacion contra las metas. */
   detalle?: boolean;
 }) {
   return (
@@ -39,9 +45,14 @@ export default function SlaBadge({
           {sla.excesoSolucion > 0 ? ` (${formatearMinutos(sla.excesoSolucion)} de mas)` : ""}
         </span>
       )}
-      {detalle && sla.primeraRespuesta === "FUERA" && (
-        <span className="text-xs text-red-600">
-          Primera respuesta sobre la meta de {formatearMinutos(sla.metaPrimeraRespuesta)}
+      {detalle && sla.metaPrimeraRespuesta !== null && (
+        <span
+          className={
+            sla.primeraRespuesta === "FUERA" ? "text-xs text-amber-700" : "text-xs text-slate-500"
+          }
+        >
+          Primera respuesta: {formatearMinutos(minutosPrimeraRespuesta)} de{" "}
+          {formatearMinutos(sla.metaPrimeraRespuesta)}
         </span>
       )}
     </span>

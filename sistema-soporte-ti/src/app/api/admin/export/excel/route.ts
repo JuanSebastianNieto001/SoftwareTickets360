@@ -53,9 +53,16 @@ export async function GET() {
     // como booleano porque el Excel lo lee gente que arma el reporte a mano,
     // y con la meta al lado para poder auditar el veredicto sin abrir el
     // sistema.
+    //
+    // Son dos columnas separadas a proposito: el veredicto del ticket
+    // ("Cumplio SLA") mira solo el tiempo de solucion, mientras que la
+    // primera respuesta se reporta aparte. Mezclarlas marcaba como incumplido
+    // un ticket resuelto al instante solo porque el reporte espero en la fila.
     { header: "Meta de solucion", key: "metaSolucion", width: 18 },
-    { header: "Cumplio SLA", key: "cumplioSla", width: 14 },
+    { header: "Cumplio SLA (solucion)", key: "cumplioSla", width: 22 },
     { header: "Tiempo excedido", key: "excesoSla", width: 16 },
+    { header: "Meta primera respuesta", key: "metaRespuesta", width: 22 },
+    { header: "Primera respuesta", key: "cumplioRespuesta", width: 18 },
     { header: "Motivo del incumplimiento", key: "justificacionSla", width: 44 },
   ];
 
@@ -99,6 +106,9 @@ export async function GET() {
       metaSolucion: sla.metaSolucion === null ? "Sin tope" : formatearMinutos(sla.metaSolucion),
       cumplioSla: ETIQUETA_SLA[sla.general],
       excesoSla: sla.excesoSolucion > 0 ? formatearMinutos(sla.excesoSolucion) : "",
+      metaRespuesta:
+        sla.metaPrimeraRespuesta === null ? "Sin tope" : formatearMinutos(sla.metaPrimeraRespuesta),
+      cumplioRespuesta: ETIQUETA_SLA[sla.primeraRespuesta],
       justificacionSla: t.justificacionSla,
     });
   }

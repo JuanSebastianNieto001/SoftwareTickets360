@@ -69,6 +69,12 @@ cierre la valida y el Excel la reporta desde ahi.
   **primera respuesta** = creacion → "Voy en camino" (`tiempoLlegada`), y
   **solucion** = "Voy en camino" → cierre (`tiempoResolucion`). El tope de
   solucion es corto porque mide el arreglo en sitio, no la espera en la fila.
+- **Solo el tiempo de solucion decide** si un ticket queda dentro o fuera del
+  SLA. La primera respuesta se mide, se muestra en el panel y se exporta en
+  su propia columna del Excel, pero no marca el ticket como incumplido: si no,
+  un caso resuelto en 1 minuto salia en rojo solo porque el reporte espero en
+  la fila, que no depende de quien lo atiende. El unico punto a cambiar si
+  algun dia se quiere que tambien cuente es `general` en `evaluarSla()`.
 - "En orden de llegada" y "depende del tercero" se guardan como `null`: son
   prioridades **sin tope fijo**, asi que no se pueden incumplir. En el panel y
   en el Excel salen como "Sin meta", no como cumplidas, para no inflar el
