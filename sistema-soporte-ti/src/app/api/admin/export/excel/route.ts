@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { prisma } from "@/lib/db";
-import { formatearMinutos } from "@/lib/ticket";
+import { evaluarSla, formatearMinutos } from "@/lib/ticket";
 
 // Obligatorio: esta ruta no lee `request` ni cookies, y sin esto Next.js la
 // trata como estatica, la ejecuta una sola vez durante el build y despues
@@ -49,6 +49,14 @@ export async function GET() {
     { header: "Tiempo de llegada", key: "tLlegada", width: 18 },
     { header: "Tiempo de resolucion", key: "tResolucion", width: 20 },
     { header: "Tiempo total", key: "tTotal", width: 16 },
+    // Cumplimiento del SLA. Va como texto legible ("Dentro" / "Fuera") y no
+    // como booleano porque el Excel lo lee gente que arma el reporte a mano,
+    // y con la meta al lado para poder auditar el veredicto sin abrir el
+    // sistema.
+    { header: "Meta de solucion", key: "metaSolucion", width: 18 },
+    { header: "Cumplio SLA", key: "cumplioSla", width: 14 },
+    { header: "Tiempo excedido", key: "excesoSla", width: 16 },
+    { header: "Motivo del incumplimiento", key: "justificacionSla", width: 44 },
   ];
 
   hoja.getRow(1).font = { bold: true };
@@ -60,7 +68,17 @@ export async function GET() {
   const formatoFecha = (d: Date | null) =>
     d ? d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "";
 
+  // Etiqueta del veredicto. SIN_META son las prioridades sin tope fijo
+  // (Critica, cuya solucion "depende del tercero"): no cumplieron ni
+  // incumplieron nada, y marcarlas como cumplidas inflaria el indicador.
+  const ETIQUETA_SLA = { DENTRO: "Dentro", FUERA: "Fuera", SIN_META: "Sin meta" } as const;
+
   for (const t of tickets) {
+    const sla = evaluarSla(t.prioridad, {
+      minutosPrimeraRespuesta: t.tiempoLlegada,
+      minutosSolucion: t.tiempoResolucion,
+    });
+
     hoja.addRow({
       codigo: t.codigoTicket,
       solicitante: t.nombreSolicitante,
@@ -78,6 +96,10 @@ export async function GET() {
       tLlegada: formatearMinutos(t.tiempoLlegada),
       tResolucion: formatearMinutos(t.tiempoResolucion),
       tTotal: formatearMinutos(t.tiempoTotal),
+      metaSolucion: sla.metaSolucion === null ? "Sin tope" : formatearMinutos(sla.metaSolucion),
+      cumplioSla: ETIQUETA_SLA[sla.general],
+      excesoSla: sla.excesoSolucion > 0 ? formatearMinutos(sla.excesoSolucion) : "",
+      justificacionSla: t.justificacionSla,
     });
   }
 

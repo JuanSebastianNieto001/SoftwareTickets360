@@ -48,7 +48,11 @@ export const CATEGORIAS = [
   "Accesos y credenciales",
   "Otro",
 ] as const;
-export const PRIORIDADES = ["BAJA", "MEDIA", "ALTA"] as const;
+// CRITICA no la asigna ninguna categoria: depende del alcance del impacto
+// (una falla que detiene un area completa), no del tipo de problema, asi que
+// no hay forma de deducirla del formulario. La escala el admin a mano desde
+// el panel (PATCH /api/admin/tickets/:id/prioridad).
+export const PRIORIDADES = ["BAJA", "MEDIA", "ALTA", "CRITICA"] as const;
 
 /**
  * Lideres de equipo de los asesores. Solo se pide cuando el area es
@@ -101,3 +105,154 @@ export const PRIORIDAD_POR_CATEGORIA: Record<Categoria, Prioridad> = {
 export function prioridadParaCategoria(categoria: string): Prioridad {
   return PRIORIDAD_POR_CATEGORIA[categoria as Categoria] ?? "MEDIA";
 }
+
+// ---------------------------------------------------------------------------
+// Acuerdo de nivel de servicio (SLA)
+// ---------------------------------------------------------------------------
+
+/**
+ * Metas de atencion de una prioridad. Los dos tiempos se miden sobre las
+ * marcas que ya registra el ticket:
+ *
+ *   primera respuesta = creacion -> "Voy en camino"  (campo tiempoLlegada)
+ *   solucion          = "Voy en camino" -> cierre    (campo tiempoResolucion)
+ *
+ * `null` en una meta significa que esa prioridad no tiene un tope fijo, asi
+ * que nunca se puede incumplir: es el caso de "En orden de llegada" (no hay
+ * compromiso de respuesta) y de "depende del tercero" (el tiempo lo pone un
+ * proveedor externo, no el area de TI). La `nota` es el texto de la tabla
+ * que se muestra en la UI cuando la meta es null.
+ */
+export type AcuerdoNivelServicio = {
+  descripcion: string;
+  minutosPrimeraRespuesta: number | null;
+  notaPrimeraRespuesta: string;
+  minutosSolucion: number | null;
+  notaSolucion: string;
+};
+
+/**
+ * Tabla de SLA acordada con el negocio. Es la unica fuente de verdad: para
+ * ajustar un tiempo se cambia aqui y se refleja en el panel, en la validacion
+ * del cierre y en el Excel.
+ *
+ * Los topes de solucion son cortos a proposito (10 minutos) porque NO se
+ * miden desde que el usuario reporta, sino desde que el tecnico marca "Voy en
+ * camino": es el tiempo de arreglo en sitio, no la espera en la fila.
+ */
+export const SLA_POR_PRIORIDAD: Record<Prioridad, AcuerdoNivelServicio> = {
+  CRITICA: {
+    descripcion:
+      "Falla que detiene la operacion de la compania o de un area completa (mas de 10 personas).",
+    minutosPrimeraRespuesta: 10,
+    notaPrimeraRespuesta: "10 min (si las pruebas establecidas lo permiten)",
+    minutosSolucion: null,
+    notaSolucion: "Depende del tercero",
+  },
+  ALTA: {
+    descripcion: "Falla que impide a un usuario realizar su trabajo, sin alternativa.",
+    minutosPrimeraRespuesta: 10,
+    notaPrimeraRespuesta: "10 minutos",
+    minutosSolucion: 10,
+    notaSolucion: "10 minutos (si no involucra a terceros)",
+  },
+  MEDIA: {
+    descripcion: "Falla o requerimiento que afecta parcialmente el trabajo; existe alternativa.",
+    minutosPrimeraRespuesta: null,
+    notaPrimeraRespuesta: "En orden de llegada",
+    minutosSolucion: 10,
+    notaSolucion: "10 minutos (si no involucra a terceros)",
+  },
+  BAJA: {
+    descripcion: "Solicitud, consulta o mejora que no afecta la operacion.",
+    minutosPrimeraRespuesta: null,
+    notaPrimeraRespuesta: "En orden de llegada",
+    minutosSolucion: 10,
+    notaSolucion: "10 minutos (si no involucra a terceros)",
+  },
+};
+
+/** SLA de una prioridad. Cae en el de MEDIA si llega una prioridad desconocida. */
+export function slaParaPrioridad(prioridad: string): AcuerdoNivelServicio {
+  return SLA_POR_PRIORIDAD[prioridad as Prioridad] ?? SLA_POR_PRIORIDAD.MEDIA;
+}
+
+/**
+ * Resultado de comparar un tiempo real contra su meta.
+ * SIN_META cubre los dos casos en los que no hay nada que juzgar: la
+ * prioridad no tiene tope fijo, o el ticket todavia no llego a esa marca.
+ */
+export type ResultadoSla = "DENTRO" | "FUERA" | "SIN_META";
+
+export type EvaluacionSla = {
+  primeraRespuesta: ResultadoSla;
+  solucion: ResultadoSla;
+  /** FUERA si cualquiera de las dos metas se incumplio. */
+  general: ResultadoSla;
+  metaPrimeraRespuesta: number | null;
+  metaSolucion: number | null;
+  /** Minutos de mas sobre la meta de solucion. 0 si se cumplio o no habia meta. */
+  excesoSolucion: number;
+};
+
+function compararConMeta(real: number | null | undefined, meta: number | null): ResultadoSla {
+  if (meta === null || real === null || real === undefined) return "SIN_META";
+  return real <= meta ? "DENTRO" : "FUERA";
+}
+
+/**
+ * Evalua un ticket contra el SLA de su prioridad.
+ *
+ * No se guarda en la base a proposito: se deriva de la prioridad y de los
+ * tiempos, que si estan guardados. Asi un ajuste en SLA_POR_PRIORIDAD no
+ * deja registros viejos con un veredicto que ya no corresponde a la tabla.
+ *
+ * Sirve tanto para un ticket ya cerrado (con sus tiempos finales) como para
+ * proyectar el cierre de uno en proceso: el panel le pasa los minutos
+ * transcurridos hasta ahora para saber si al cerrar va a quedar fuera y
+ * tiene que pedir la justificacion.
+ */
+export function evaluarSla(
+  prioridad: string,
+  tiempos: { minutosPrimeraRespuesta?: number | null; minutosSolucion?: number | null }
+): EvaluacionSla {
+  const sla = slaParaPrioridad(prioridad);
+  const primeraRespuesta = compararConMeta(tiempos.minutosPrimeraRespuesta, sla.minutosPrimeraRespuesta);
+  const solucion = compararConMeta(tiempos.minutosSolucion, sla.minutosSolucion);
+
+  const general: ResultadoSla =
+    primeraRespuesta === "FUERA" || solucion === "FUERA"
+      ? "FUERA"
+      : primeraRespuesta === "DENTRO" || solucion === "DENTRO"
+        ? "DENTRO"
+        : "SIN_META";
+
+  const excesoSolucion =
+    solucion === "FUERA" && sla.minutosSolucion !== null
+      ? (tiempos.minutosSolucion ?? 0) - sla.minutosSolucion
+      : 0;
+
+  return {
+    primeraRespuesta,
+    solucion,
+    general,
+    metaPrimeraRespuesta: sla.minutosPrimeraRespuesta,
+    metaSolucion: sla.minutosSolucion,
+    excesoSolucion,
+  };
+}
+
+/** Caracteres minimos que debe tener la explicacion de un incumplimiento. */
+export const MIN_CARACTERES_JUSTIFICACION = 10;
+
+/**
+ * Nombre legible de cada prioridad. Vive aqui y no dentro del chip porque lo
+ * usan tambien el selector de prioridad del panel y la tabla de SLA: si se
+ * agrega una prioridad, el compilador obliga a nombrarla una sola vez.
+ */
+export const ETIQUETA_PRIORIDAD: Record<Prioridad, string> = {
+  BAJA: "Baja",
+  MEDIA: "Media",
+  ALTA: "Alta",
+  CRITICA: "Critica",
+};

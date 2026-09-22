@@ -45,6 +45,47 @@ Implementa la propuesta descrita en `../PROPUESTA_SISTEMA_SOPORTE_TI/`.
   Correo electronico → MEDIA; Impresoras y Otro → BAJA. Aplica igual para
   las dos areas. El servidor la calcula e ignora cualquier prioridad que
   venga en la peticion.
+- **CRITICA** es la excepcion: ninguna categoria la asigna, porque se define
+  por el alcance del impacto ("detiene un area completa, mas de 10 personas")
+  y eso el formulario no lo pregunta. La marca el administrador desde el
+  panel (`PATCH /api/admin/tickets/:id/prioridad`), y solo mientras el ticket
+  sigue abierto: en uno cerrado la prioridad ya es la vara con la que se
+  midio su SLA.
+
+### Acuerdo de nivel de servicio (SLA)
+
+La tabla acordada con el negocio vive en `SLA_POR_PRIORIDAD`
+(`src/lib/ticket.ts`) y es la unica fuente de verdad: el panel la muestra, el
+cierre la valida y el Excel la reporta desde ahi.
+
+| Prioridad | Primera respuesta | Maximo de solucion |
+| --- | --- | --- |
+| Critica | 10 min (si las pruebas establecidas lo permiten) | Depende del tercero |
+| Alta | 10 minutos | 10 minutos (si no involucra a terceros) |
+| Media | En orden de llegada | 10 minutos (si no involucra a terceros) |
+| Baja | En orden de llegada | 10 minutos (si no involucra a terceros) |
+
+- Los dos tiempos se miden sobre marcas que el ticket ya registraba:
+  **primera respuesta** = creacion → "Voy en camino" (`tiempoLlegada`), y
+  **solucion** = "Voy en camino" → cierre (`tiempoResolucion`). El tope de
+  solucion es corto porque mide el arreglo en sitio, no la espera en la fila.
+- "En orden de llegada" y "depende del tercero" se guardan como `null`: son
+  prioridades **sin tope fijo**, asi que no se pueden incumplir. En el panel y
+  en el Excel salen como "Sin meta", no como cumplidas, para no inflar el
+  indicador.
+- Al cerrar un ticket **fuera de tiempo, el sistema exige una explicacion**
+  (`justificacionSla`, minimo 10 caracteres). La regla se valida en el
+  servidor, no solo en el panel: el panel proyecta el resultado con su propio
+  reloj y el ticket puede cruzar la meta entre que se abre el formulario y se
+  confirma el cierre. Si el cierre termina dentro de la meta, la explicacion
+  no se guarda.
+- El veredicto (dentro/fuera) **no se guarda en la base**: se recalcula con la
+  prioridad y los tiempos. Asi, ajustar un tiempo en `SLA_POR_PRIORIDAD` no
+  deja tickets historicos con un resultado que ya no corresponde a la tabla.
+- En **Finalizados** cada ticket muestra su chip de cumplimiento con la
+  comparacion contra la meta, hay un resumen de cuantos quedaron dentro y
+  fuera, y una casilla para ver solo los que se pasaron. El motivo del
+  incumplimiento se descarga al pulsar "Ver solucion", igual que la solucion.
 - El panel tiene dos zonas: **Activos** (pendientes + en proceso), que es la
   vista inicial, y **Finalizados**, el historial. Al cerrar un ticket
   desaparece de Activos y pasa a Finalizados.
@@ -161,7 +202,8 @@ src/
     api/tickets/               Crear ticket (POST) — publico
     api/tickets/consulta/      Consultar por codigo (GET) — publico
     api/auth/                  Login / logout
-    api/admin/tickets/         Listado y acciones (iniciar/cerrar) — protegido
+    api/admin/tickets/         Listado y acciones (iniciar/cerrar/prioridad)
+                               — protegido
     api/admin/export/excel/    Exportacion Excel — protegido
     api/admin/limpieza/        Limpieza de tickets antiguos — protegido
   components/                 UI (formulario, dashboard, badges, etc.)

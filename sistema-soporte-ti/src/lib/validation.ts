@@ -2,7 +2,7 @@
 // (src/app/api/**): la misma definicion valida en ambos lados, asi que un
 // mensaje de error cambiado aqui se refleja en toda la app.
 import { z } from "zod";
-import { AREA_ASESOR, AREAS, CATEGORIAS, TEAM_LEADERS } from "@/lib/ticket";
+import { AREA_ASESOR, AREAS, CATEGORIAS, PRIORIDADES, TEAM_LEADERS } from "@/lib/ticket";
 
 const crearTicketBase = z.object({
   nombreSolicitante: z.string().trim().min(3, "Escribe tu nombre completo").max(120),
@@ -66,6 +66,22 @@ export const crearTicketSchema = crearTicketBase
 
 export const cerrarTicketSchema = z.object({
   solucion: z.string().trim().min(5, "Describe la solucion aplicada").max(2000),
+  // Opcional aqui porque su obligatoriedad no depende del cuerpo de la
+  // peticion sino del ticket: solo se exige si el cierre queda fuera del SLA
+  // de su prioridad, y eso solo se sabe con los tiempos que ya estan en la
+  // base. Esa regla vive en la route del cierre (api/admin/tickets/[id]/cerrar).
+  justificacionSla: z.string().trim().max(2000).optional(),
+});
+
+/**
+ * Escalar o bajar la prioridad de un ticket abierto. Es la unica forma de
+ * marcar un caso como CRITICA: esa prioridad depende del alcance del impacto
+ * (cuanta gente queda detenida), que el formulario publico no pregunta.
+ */
+export const cambiarPrioridadSchema = z.object({
+  prioridad: z.enum(PRIORIDADES, {
+    errorMap: () => ({ message: "Selecciona una prioridad valida" }),
+  }),
 });
 
 /**

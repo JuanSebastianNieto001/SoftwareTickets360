@@ -7,6 +7,10 @@ import { prisma } from "@/lib/db";
 // proposito: es el campo mas pesado y solo se necesita cuando el
 // administrador abre un ticket finalizado. Se pide una vez por ticket y el
 // panel lo deja cacheado.
+//
+// La justificacion del SLA viaja por aqui por lo mismo: es otro texto largo,
+// esta vacia en la mayoria de los tickets (los que cumplieron la meta) y solo
+// se lee al abrir el que quedo fuera.
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   const ticket = await prisma.ticket.findUnique({
     where: { id: params.id },
@@ -14,6 +18,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       id: true,
       codigoTicket: true,
       solucion: true,
+      justificacionSla: true,
       tiempoLlegada: true,
       tiempoResolucion: true,
       tiempoTotal: true,

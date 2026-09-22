@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { obtenerSesionActual } from "@/lib/auth";
 import { cerrarTicketSchema } from "@/lib/validation";
+import { MIN_CARACTERES_JUSTIFICACION, evaluarSla, formatearMinutos } from "@/lib/ticket";
 
 // POST /api/admin/tickets/:id/cerrar — cierra el ticket registrando la solucion y los tiempos finales.
 export async function POST(request: Request, { params }: { params: { id: string } }) {
@@ -45,6 +46,44 @@ export async function POST(request: Request, { params }: { params: { id: string 
       ? Math.max(0, Math.round((ticket.fechaInicio.getTime() - ticket.fechaCreacion.getTime()) / 60000))
       : 0);
 
+  // Los tiempos de arriba son los definitivos, asi que aqui ya se sabe si el
+  // ticket cumplio el SLA de su prioridad. Si no lo cumplio, el cierre no
+  // pasa sin una explicacion: es el unico momento en que el admin todavia
+  // recuerda que paso, y despues ese texto es lo unico que explica el
+  // incumplimiento en el reporte.
+  //
+  // La regla se valida aqui y no solo en el panel porque el panel proyecta el
+  // resultado con su propio reloj: entre que muestra el formulario y llega la
+  // peticion pueden pasar minutos y cruzar la meta. El servidor manda.
+  const sla = evaluarSla(ticket.prioridad, {
+    minutosPrimeraRespuesta: tiempoLlegada,
+    minutosSolucion: tiempoResolucion,
+  });
+  const justificacion = parsed.data.justificacionSla ?? "";
+
+  if (sla.general === "FUERA" && justificacion.length < MIN_CARACTERES_JUSTIFICACION) {
+    const excedidas: string[] = [];
+    if (sla.primeraRespuesta === "FUERA") {
+      excedidas.push(
+        `primera respuesta ${formatearMinutos(tiempoLlegada)} (meta ${formatearMinutos(sla.metaPrimeraRespuesta)})`
+      );
+    }
+    if (sla.solucion === "FUERA") {
+      excedidas.push(
+        `solucion ${formatearMinutos(tiempoResolucion)} (meta ${formatearMinutos(sla.metaSolucion)})`
+      );
+    }
+    return NextResponse.json(
+      {
+        error:
+          `Este ticket queda fuera del SLA de prioridad ${ticket.prioridad}: ${excedidas.join(" y ")}. ` +
+          `Explica por que tomo mas tiempo (minimo ${MIN_CARACTERES_JUSTIFICACION} caracteres) para poder cerrarlo.`,
+        sla,
+      },
+      { status: 400 }
+    );
+  }
+
   const actualizado = await prisma.ticket.update({
     where: { id: ticket.id },
     data: {
@@ -55,9 +94,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
       tiempoResolucion,
       tiempoTotal,
       solucion: parsed.data.solucion,
+      // Solo se guarda si de verdad hubo incumplimiento: si el admin escribio
+      // una explicacion y al final cerro a tiempo, guardarla dejaria un
+      // "se demoro por X" en un ticket que cumplio.
+      justificacionSla: sla.general === "FUERA" ? justificacion : "",
       adminId: ticket.adminId ?? sesion.userId,
     },
   });
 
-  return NextResponse.json({ ticket: actualizado });
+  return NextResponse.json({ ticket: actualizado, sla });
 }

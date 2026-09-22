@@ -28,6 +28,10 @@ const CAMPOS_LISTADO = {
   fechaCreacion: true,
   fechaInicio: true,
   fechaCierre: true,
+  // Los dos tiempos que compara el SLA: llegada (creacion -> "Voy en camino")
+  // y resolucion ("Voy en camino" -> cierre). Son dos enteros, no pesan, y
+  // con ellos el panel evalua el cumplimiento sin una consulta extra.
+  tiempoLlegada: true,
   tiempoResolucion: true,
   admin: { select: { nombre: true } },
 } as const;

@@ -66,6 +66,14 @@ model Ticket {
 
   solucion           String?
 
+  // Explicacion del admin cuando el ticket se cierra fuera de los tiempos
+  // del SLA (tabla SLA_POR_PRIORIDAD en src/lib/ticket.ts). El cierre la
+  // exige solo en ese caso; si se cumplio la meta queda en "".
+  // El veredicto (dentro/fuera) no se guarda: se recalcula con la prioridad
+  // y los tiempos, para que un cambio en la tabla no deje historicos con un
+  // resultado que ya no corresponde.
+  justificacionSla   String    @default("")
+
   adminId            String?
   admin              User?     @relation("AdminTickets", fields: [adminId], references: [id])
 

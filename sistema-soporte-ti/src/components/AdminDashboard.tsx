@@ -17,13 +17,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import EstadoBadge from "@/components/EstadoBadge";
 import PrioridadBadge from "@/components/PrioridadBadge";
+import SlaBadge from "@/components/SlaBadge";
+import TablaSla from "@/components/TablaSla";
 import { IconTrash } from "@/components/icons";
-import { TEAM_LEADERS, formatearFechaHora, formatearMinutos } from "@/lib/ticket";
+import {
+  ETIQUETA_PRIORIDAD,
+  MIN_CARACTERES_JUSTIFICACION,
+  PRIORIDADES,
+  SLA_POR_PRIORIDAD,
+  TEAM_LEADERS,
+  evaluarSla,
+  formatearFechaHora,
+  formatearMinutos,
+} from "@/lib/ticket";
 
 const INTERVALO_ACTUALIZACION_MS = 20000;
 // Espera antes de buscar mientras se escribe, para no lanzar una consulta a
 // la base por cada tecla.
 const RETARDO_BUSQUEDA_MS = 350;
+// Cada cuanto se recalcula la proyeccion del SLA del ticket que se esta
+// cerrando. Es solo aritmetica sobre datos ya cargados, no consulta nada.
+const INTERVALO_RELOJ_SLA_MS = 10000;
 
 type Contadores = { PENDIENTE: number; EN_PROCESO: number; CERRADO: number };
 
@@ -45,12 +59,15 @@ type Ticket = {
   fechaCreacion: string;
   fechaInicio: string | null;
   fechaCierre: string | null;
+  /** Creacion -> "Voy en camino". Es el tiempo de primera respuesta del SLA. */
+  tiempoLlegada: number | null;
+  /** "Voy en camino" -> cierre. Es el tiempo de solucion del SLA. */
   tiempoResolucion: number | null;
   admin: { nombre: string } | null;
 };
 
 /** Lo que se pide bajo demanda al abrir un ticket finalizado. */
-type TicketDetalle = { solucion: string | null };
+type TicketDetalle = { solucion: string | null; justificacionSla: string };
 
 const FILTROS = [
   { valor: "ACTIVOS", etiqueta: "Activos" },
@@ -79,6 +96,17 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [ticketAbierto, setTicketAbierto] = useState<string | null>(null);
   const [solucionTexto, setSolucionTexto] = useState("");
+  // Explicacion del incumplimiento. Solo se manda (y solo se exige) cuando el
+  // cierre queda fuera de la meta de su prioridad.
+  const [justificacionTexto, setJustificacionTexto] = useState("");
+  // En Finalizados: deja ver solo los que incumplieron. Se filtra en el
+  // cliente porque el cumplimiento es un valor derivado (prioridad + tiempos),
+  // no una columna que la base pueda filtrar.
+  const [soloFueraSla, setSoloFueraSla] = useState(false);
+  // Reloj propio para proyectar el SLA del ticket que se esta cerrando: sin
+  // el, el aviso de "va a quedar fuera de tiempo" solo aparecia cuando el
+  // polling volvia a pintar la lista, hasta 20 s tarde.
+  const [ahora, setAhora] = useState(() => Date.now());
   const [procesando, setProcesando] = useState<string | null>(null);
   const primeraCargaHecha = useRef(false);
 
@@ -113,6 +141,22 @@ export default function AdminDashboard() {
     const temporizador = setTimeout(() => setBusquedaAplicada(busqueda.trim()), RETARDO_BUSQUEDA_MS);
     return () => clearTimeout(temporizador);
   }, [busqueda]);
+
+  // El reloj solo corre mientras hay un formulario de cierre abierto: es lo
+  // unico que necesita saber cuanto tiempo lleva corriendo el ticket ahora
+  // mismo. Fuera de eso no hay nada que recalcular.
+  useEffect(() => {
+    if (!ticketAbierto) return;
+    setAhora(Date.now());
+    const intervalo = setInterval(() => setAhora(Date.now()), INTERVALO_RELOJ_SLA_MS);
+    return () => clearInterval(intervalo);
+  }, [ticketAbierto]);
+
+  // El filtro de incumplimientos solo tiene sentido sobre los finalizados:
+  // en un ticket abierto todavia no hay nada que juzgar.
+  useEffect(() => {
+    if (filtro !== "CERRADO") setSoloFueraSla(false);
+  }, [filtro]);
 
   useEffect(() => {
     primeraCargaHecha.current = false;
@@ -154,6 +198,38 @@ export default function AdminDashboard() {
     };
   }, [cargar, filtro]);
 
+  /**
+   * Cumplimiento de un ticket ya cerrado, con los tiempos definitivos que
+   * quedaron guardados.
+   */
+  function slaDeCerrado(t: Ticket) {
+    return evaluarSla(t.prioridad, {
+      minutosPrimeraRespuesta: t.tiempoLlegada,
+      minutosSolucion: t.tiempoResolucion,
+    });
+  }
+
+  /**
+   * Proyeccion del cumplimiento si el ticket se cerrara en este momento.
+   * Sirve para avisar antes de confirmar y para saber si hay que pedir la
+   * justificacion.
+   *
+   * Reproduce el mismo calculo del servidor, incluido el caso de cerrar un
+   * PENDIENTE sin pasar por "Voy en camino": ahi el tiempo de solucion se
+   * mide desde la creacion.
+   */
+  function proyectarSla(t: Ticket) {
+    const inicio = new Date(t.fechaInicio ?? t.fechaCreacion).getTime();
+    const minutosSolucion = Math.max(0, Math.round((ahora - inicio) / 60000));
+    return {
+      minutosSolucion,
+      sla: evaluarSla(t.prioridad, {
+        minutosPrimeraRespuesta: t.tiempoLlegada ?? 0,
+        minutosSolucion,
+      }),
+    };
+  }
+
   async function iniciarTicket(id: string) {
     setProcesando(id);
     try {
@@ -167,28 +243,75 @@ export default function AdminDashboard() {
     }
   }
 
-  async function cerrarTicket(id: string) {
+  async function cerrarTicket(t: Ticket) {
     if (!solucionTexto.trim() || solucionTexto.trim().length < 5) {
       setError("Describe la solucion aplicada (minimo 5 caracteres).");
       return;
     }
-    setProcesando(id);
+    // Chequeo de cortesia para no mandar una peticion que el servidor va a
+    // rechazar igual: la regla de verdad esta en la route del cierre, que
+    // recalcula el SLA con su propio reloj.
+    const { sla } = proyectarSla(t);
+    if (sla.general === "FUERA" && justificacionTexto.trim().length < MIN_CARACTERES_JUSTIFICACION) {
+      setError(
+        `Este ticket va a quedar fuera del SLA: explica por que tomo mas tiempo (minimo ${MIN_CARACTERES_JUSTIFICACION} caracteres).`
+      );
+      return;
+    }
+
+    setProcesando(t.id);
     try {
-      const res = await fetch(`/api/admin/tickets/${id}/cerrar`, {
+      const res = await fetch(`/api/admin/tickets/${t.id}/cerrar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ solucion: solucionTexto.trim() }),
+        body: JSON.stringify({
+          solucion: solucionTexto.trim(),
+          justificacionSla: justificacionTexto.trim(),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
+        // Caso tipico: el ticket cruzo la meta entre que se abrio el
+        // formulario y se confirmo. El formulario queda abierto con lo
+        // escrito, y el campo de justificacion ya aparece porque al
+        // repintar el reloj muestra el tiempo excedido.
         setError(data.error ?? "No se pudo cerrar el ticket.");
+        setAhora(Date.now());
         return;
       }
       setTicketAbierto(null);
       setSolucionTexto("");
+      setJustificacionTexto("");
       await cargar();
     } catch {
       setError("No se pudo cerrar el ticket.");
+    } finally {
+      setProcesando(null);
+    }
+  }
+
+  /**
+   * Cambia la prioridad de un ticket abierto. Es la unica forma de marcar uno
+   * como Critica: esa prioridad depende de a cuanta gente deja detenida, algo
+   * que el formulario publico no pregunta y la categoria no puede deducir.
+   * Cambiarla mueve las metas de SLA contra las que se va a medir el cierre.
+   */
+  async function cambiarPrioridad(id: string, prioridad: string) {
+    setProcesando(id);
+    try {
+      const res = await fetch(`/api/admin/tickets/${id}/prioridad`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prioridad }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "No se pudo cambiar la prioridad.");
+        return;
+      }
+      await cargar();
+    } catch {
+      setError("No se pudo cambiar la prioridad.");
     } finally {
       setProcesando(null);
     }
@@ -210,7 +333,13 @@ export default function AdminDashboard() {
       const res = await fetch(`/api/admin/tickets/${id}`, { cache: "no-store" });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      setDetalles((previos) => ({ ...previos, [id]: { solucion: data.ticket.solucion } }));
+      setDetalles((previos) => ({
+        ...previos,
+        [id]: {
+          solucion: data.ticket.solucion,
+          justificacionSla: data.ticket.justificacionSla ?? "",
+        },
+      }));
     } catch {
       setError("No se pudo cargar la solucion del ticket.");
       setDetalleAbierto(null);
@@ -271,8 +400,19 @@ export default function AdminDashboard() {
     }
   }
 
+  // Cumplimiento de los finalizados que hay en pantalla. Es sobre la lista
+  // cargada (con sus filtros), no sobre toda la tabla: la idea es leer el
+  // resultado de lo que se esta mirando, por ejemplo el de un team leader.
+  const cerrados = tickets.filter((t) => t.estado === "CERRADO");
+  const cerradosFuera = cerrados.filter((t) => slaDeCerrado(t).general === "FUERA");
+  const cerradosDentro = cerrados.filter((t) => slaDeCerrado(t).general === "DENTRO");
+
+  const ticketsVisibles = soloFueraSla ? cerradosFuera : tickets;
+
   return (
     <div className="space-y-6">
+      <TablaSla />
+
       <div className="grid grid-cols-3 gap-3">
         <div className="card p-4 text-center">
           <p className="text-2xl font-bold text-amber-600">{contadores.PENDIENTE}</p>
@@ -345,6 +485,32 @@ export default function AdminDashboard() {
         </button>
       </div>
 
+      {/* Resumen de cumplimiento de los finalizados en pantalla. Solo en la
+          vista de Finalizados: en las otras no hay tickets cerrados que
+          medir y el bloque quedaria siempre en cero. */}
+      {filtro === "CERRADO" && cerrados.length > 0 && (
+        <div className="card flex flex-wrap items-center gap-x-6 gap-y-2 p-4 text-sm">
+          <span className="font-semibold text-brand-900">Cumplimiento del SLA</span>
+          <span className="text-emerald-700">
+            Dentro de tiempo: <strong>{cerradosDentro.length}</strong>
+          </span>
+          <span className="text-red-700">
+            Fuera de tiempo: <strong>{cerradosFuera.length}</strong>
+          </span>
+          {cerradosFuera.length > 0 && (
+            <label className="ml-auto flex items-center gap-2 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={soloFueraSla}
+                onChange={(e) => setSoloFueraSla(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              Ver solo los que se pasaron del tiempo
+            </label>
+          )}
+        </div>
+      )}
+
       {error && (
         <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between">
           {error}
@@ -356,18 +522,44 @@ export default function AdminDashboard() {
 
       {cargando ? (
         <p className="text-sm text-slate-500">Cargando tickets...</p>
-      ) : tickets.length === 0 ? (
+      ) : ticketsVisibles.length === 0 ? (
         <p className="text-sm text-slate-500">No hay tickets que coincidan con el filtro.</p>
       ) : (
         <ul className="space-y-3">
-          {tickets.map((t) => (
+          {ticketsVisibles.map((t) => (
             <li key={t.id} className="card p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-bold text-brand-700">{t.codigoTicket}</span>
                     <EstadoBadge estado={t.estado} />
                     <PrioridadBadge prioridad={t.prioridad} />
+                    {/* Solo mientras el ticket sigue abierto: en uno cerrado la
+                        prioridad ya es la vara con la que se midio su SLA.
+
+                        El select se queda siempre en "" (no en la prioridad
+                        actual) para que funcione como menu de accion: la
+                        prioridad vigente ya la muestra el chip de al lado, y
+                        asi el control no repite "Alta" junto a un chip que
+                        dice "Alta". */}
+                    {t.estado !== "CERRADO" && (
+                      <select
+                        className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-600 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:opacity-50"
+                        value=""
+                        disabled={procesando === t.id}
+                        onChange={(e) => {
+                          if (e.target.value) cambiarPrioridad(t.id, e.target.value);
+                        }}
+                        aria-label={`Cambiar prioridad del ticket ${t.codigoTicket}`}
+                      >
+                        <option value="">Cambiar prioridad</option>
+                        {PRIORIDADES.map((p) => (
+                          <option key={p} value={p} disabled={p === t.prioridad}>
+                            {ETIQUETA_PRIORIDAD[p]} · {SLA_POR_PRIORIDAD[p].notaSolucion}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                   <p className="mt-1 text-sm font-medium text-slate-900">
                     {t.nombreSolicitante}
@@ -391,6 +583,7 @@ export default function AdminDashboard() {
                       onClick={() => {
                         setTicketAbierto(ticketAbierto === t.id ? null : t.id);
                         setSolucionTexto("");
+                        setJustificacionTexto("");
                       }}
                     >
                       {ticketAbierto === t.id ? "Cancelar" : "Cerrar ticket"}
@@ -427,47 +620,100 @@ export default function AdminDashboard() {
                   calculando y guardando, y salen en el Excel, pero en el panel
                   confundian mas de lo que ayudaban. */}
               {t.estado === "CERRADO" && (
-                <div className="mt-3 text-xs">
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                   <span className="inline-block rounded bg-slate-50 px-2 py-1">
                     Se resolvio en: {formatearMinutos(t.tiempoResolucion)}
                   </span>
+                  {/* Veredicto contra la meta de su prioridad. Se calcula al
+                      vuelo con los tiempos guardados, no se lee de la base. */}
+                  <SlaBadge sla={slaDeCerrado(t)} minutosSolucion={t.tiempoResolucion} />
                 </div>
               )}
 
-              {/* La solucion no viaja en el listado: se descarga al abrirla. */}
+              {/* Ni la solucion ni la justificacion viajan en el listado: se
+                  descargan al abrir el ticket. */}
               {t.estado === "CERRADO" && detalleAbierto === t.id && (
-                <p className="mt-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
-                  {detalles[t.id] ? (
-                    <>
-                      <strong>Solucion:</strong> {detalles[t.id].solucion || "(sin solucion registrada)"}
-                    </>
-                  ) : (
-                    "Cargando solucion..."
+                <div className="mt-2 space-y-2">
+                  <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
+                    {detalles[t.id] ? (
+                      <>
+                        <strong>Solucion:</strong> {detalles[t.id].solucion || "(sin solucion registrada)"}
+                      </>
+                    ) : (
+                      "Cargando solucion..."
+                    )}
+                  </p>
+                  {detalles[t.id]?.justificacionSla && (
+                    <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">
+                      <strong>Por que se paso del tiempo:</strong> {detalles[t.id].justificacionSla}
+                    </p>
                   )}
-                </p>
-              )}
-
-              {ticketAbierto === t.id && (
-                <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
-                  <label className="label" htmlFor={`solucion-${t.id}`}>
-                    Solucion aplicada
-                  </label>
-                  <textarea
-                    id={`solucion-${t.id}`}
-                    className="input min-h-[90px]"
-                    value={solucionTexto}
-                    onChange={(e) => setSolucionTexto(e.target.value)}
-                    placeholder="Describe que se hizo para resolver el problema"
-                  />
-                  <button
-                    className="btn-primary"
-                    disabled={procesando === t.id}
-                    onClick={() => cerrarTicket(t.id)}
-                  >
-                    {procesando === t.id ? "Guardando..." : "Confirmar cierre"}
-                  </button>
                 </div>
               )}
+
+              {ticketAbierto === t.id &&
+                (() => {
+                  // Como va el ticket contra su meta en este momento. Se
+                  // recalcula solo (ver el reloj de INTERVALO_RELOJ_SLA_MS),
+                  // asi que si cruza la meta con el formulario abierto, el
+                  // campo de explicacion aparece sin tener que recargar.
+                  const { sla, minutosSolucion } = proyectarSla(t);
+                  const fuera = sla.general === "FUERA";
+
+                  return (
+                    <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="text-slate-500">Si lo cierras ahora:</span>
+                        <SlaBadge sla={sla} minutosSolucion={minutosSolucion} />
+                      </div>
+
+                      <label className="label" htmlFor={`solucion-${t.id}`}>
+                        Solucion aplicada
+                      </label>
+                      <textarea
+                        id={`solucion-${t.id}`}
+                        className="input min-h-[90px]"
+                        value={solucionTexto}
+                        onChange={(e) => setSolucionTexto(e.target.value)}
+                        placeholder="Describe que se hizo para resolver el problema"
+                      />
+
+                      {/* Solo cuando de verdad se paso del tiempo: pedirla
+                          siempre convertiria la explicacion en un tramite que
+                          se llena en automatico y dejaria de servir para
+                          entender los incumplimientos. */}
+                      {fuera && (
+                        <>
+                          <label className="label" htmlFor={`justificacion-${t.id}`}>
+                            Por que tomo mas tiempo del acordado
+                          </label>
+                          <p className="text-xs text-slate-500">
+                            Este ticket se paso de la meta de prioridad {ETIQUETA_PRIORIDAD[t.prioridad as keyof typeof ETIQUETA_PRIORIDAD] ?? t.prioridad}
+                            {sla.metaSolucion !== null
+                              ? ` (${formatearMinutos(sla.metaSolucion)} de solucion)`
+                              : ""}
+                            . Sin esta explicacion no se puede cerrar.
+                          </p>
+                          <textarea
+                            id={`justificacion-${t.id}`}
+                            className="input min-h-[70px]"
+                            value={justificacionTexto}
+                            onChange={(e) => setJustificacionTexto(e.target.value)}
+                            placeholder="Ej: se tuvo que escalar al proveedor de internet, el repuesto no estaba en sitio..."
+                          />
+                        </>
+                      )}
+
+                      <button
+                        className="btn-primary"
+                        disabled={procesando === t.id}
+                        onClick={() => cerrarTicket(t)}
+                      >
+                        {procesando === t.id ? "Guardando..." : "Confirmar cierre"}
+                      </button>
+                    </div>
+                  );
+                })()}
             </li>
           ))}
         </ul>
