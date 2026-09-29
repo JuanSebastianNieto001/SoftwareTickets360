@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { obtenerSesionActual } from "@/lib/auth";
+import { ACCIONES, registrar } from "@/lib/registro";
 import { cerrarTicketSchema } from "@/lib/validation";
 import { MIN_CARACTERES_JUSTIFICACION, evaluarSla, formatearMinutos } from "@/lib/ticket";
 
@@ -94,6 +95,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
       adminId: ticket.adminId ?? sesion.userId,
     },
   });
+
+  await registrar(
+    sesion,
+    ACCIONES.TICKET_CERRADO,
+    sla.general === "FUERA"
+      ? `Cerro el ticket fuera del tiempo pactado (${tiempoResolucion} min)`
+      : `Cerro el ticket en ${tiempoResolucion} min`,
+    ticket.codigoTicket
+  );
 
   return NextResponse.json({ ticket: actualizado, sla });
 }

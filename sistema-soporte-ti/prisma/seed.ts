@@ -1,23 +1,90 @@
+// Siembra las cuentas del sistema. Es el unico lugar donde nacen:
+//
+//   ADMIN   -> el lider de TI. Entra por /admin y puede borrar tickets,
+//              gestionar cuentas y leer la bitacora.
+//   SOPORTE -> quien atiende. Entra por /soporte, atiende y consulta.
+//
+// Las contrasenas NO estan en el codigo: se leen de variables de entorno y
+// el script se niega a correr si faltan. Un valor por defecto aqui terminaria
+// publicado en el repositorio, que es justo como se filtran estas cosas.
+//
+// Uso:
+//   ADMIN_PASSWORD=... SOPORTE_PASSWORD=... npm run seed
+//
+// Es idempotente: se puede volver a correr para cambiarle la contrasena a
+// una cuenta existente sin duplicarla.
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-async function main() {
-  const correo = process.env.ADMIN_EMAIL ?? "admin@empresa.com";
-  const password = process.env.ADMIN_PASSWORD ?? "CambiaEstaClave123";
-  const nombre = process.env.ADMIN_NOMBRE ?? "Administrador";
+/** Lee una variable obligatoria o aborta con un mensaje que dice que falta. */
+function exigir(nombre: string): string {
+  const valor = process.env[nombre];
+  if (!valor || valor.trim() === "") {
+    throw new Error(
+      `Falta la variable de entorno ${nombre}. Definela antes de correr el seed; ` +
+        `no hay valor por defecto a proposito, para no dejar una contrasena en el codigo.`
+    );
+  }
+  return valor;
+}
 
-  const passwordHash = await bcrypt.hash(password, 10);
+const MIN_PASSWORD = 8;
 
-  const admin = await prisma.user.upsert({
+function exigirPassword(nombre: string): string {
+  const valor = exigir(nombre);
+  if (valor.length < MIN_PASSWORD) {
+    throw new Error(`${nombre} debe tener al menos ${MIN_PASSWORD} caracteres.`);
+  }
+  return valor;
+}
+
+async function sembrarCuenta(opciones: {
+  correo: string;
+  nombre: string;
+  password: string;
+  rol: "ADMIN" | "SOPORTE";
+}) {
+  const correo = opciones.correo.toLowerCase();
+  const passwordHash = await bcrypt.hash(opciones.password, 10);
+
+  const usuario = await prisma.user.upsert({
     where: { correo },
-    update: { nombre, passwordHash },
-    create: { nombre, correo, passwordHash, rol: "ADMIN" },
+    // El nombre no se pisa si la cuenta ya existe: puede haberlo cambiado su
+    // dueno desde el panel. La contrasena y el rol si se reafirman, que es
+    // para lo que se vuelve a correr el seed.
+    update: { passwordHash, rol: opciones.rol },
+    create: { nombre: opciones.nombre, correo, passwordHash, rol: opciones.rol },
   });
 
-  console.log(`Administrador listo: ${admin.correo} (${admin.nombre})`);
+  console.log(`${opciones.rol} listo: ${usuario.correo} (${usuario.nombre})`);
+}
 
+async function main() {
+  await sembrarCuenta({
+    correo: process.env.ADMIN_EMAIL ?? "admin",
+    nombre: process.env.ADMIN_NOMBRE ?? "Lider de TI",
+    password: exigirPassword("ADMIN_PASSWORD"),
+    rol: "ADMIN",
+  });
+
+  // La cuenta de soporte es opcional: si no se define su contrasena, el seed
+  // siembra solo la de administrador, que despues puede crear las de soporte
+  // desde el panel.
+  if (process.env.SOPORTE_PASSWORD) {
+    await sembrarCuenta({
+      correo: process.env.SOPORTE_EMAIL ?? "soporte@voz360.co",
+      nombre: process.env.SOPORTE_NOMBRE ?? "Soporte TI",
+      password: exigirPassword("SOPORTE_PASSWORD"),
+      rol: "SOPORTE",
+    });
+  } else {
+    console.log("SOPORTE_PASSWORD no definida: no se sembro cuenta de soporte.");
+  }
+
+  // Ticket de ejemplo para tener algo que ver en un entorno recien montado.
+  // Solo si la tabla esta vacia, asi que en produccion nunca se dispara.
   const totalTickets = await prisma.ticket.count();
   if (totalTickets === 0) {
     await prisma.ticket.create({
@@ -39,7 +106,7 @@ async function main() {
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error(e instanceof Error ? e.message : e);
     process.exit(1);
   })
   .finally(async () => {

@@ -1,14 +1,30 @@
 "use client";
 
-// Formulario de login del panel de administrador (src/app/admin/login).
-// Al iniciar sesion, redirige a `next` si viene de un intento de entrar a
-// una ruta protegida sin sesion (ver el `?next=` que agrega middleware.ts),
-// o a /admin por defecto.
+// Formulario de login, compartido por los dos paneles: /admin/login (lider
+// de TI) y /soporte/login (quien atiende).
+//
+// Al iniciar sesion redirige a `next` si el usuario venia de un intento de
+// entrar a una ruta protegida sin sesion (ver el `?next=` que agrega
+// middleware.ts). Si no, manda a cada quien a su panel segun el rol que
+// devuelve el servidor, no segun la pagina por la que entro: asi el lider
+// que use /soporte/login igual termina en /admin.
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { IconUser, IconLock } from "@/components/icons";
 
-export default function LoginForm({ next }: { next?: string }) {
+/** Panel que le corresponde a cada rol. */
+const PANEL_POR_ROL: Record<string, string> = {
+  ADMIN: "/admin",
+  SOPORTE: "/soporte",
+};
+
+export default function LoginForm({
+  next,
+  destinoPorDefecto = "/admin",
+}: {
+  next?: string;
+  destinoPorDefecto?: string;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -37,7 +53,12 @@ export default function LoginForm({ next }: { next?: string }) {
         setCargando(false);
         return;
       }
-      router.push(next && next.startsWith("/admin") ? next : "/admin");
+      const panel = PANEL_POR_ROL[data.rol] ?? destinoPorDefecto;
+      // `next` solo se respeta si apunta al panel que le corresponde a este
+      // rol: evita mandar a un soporte a /admin, donde el middleware lo
+      // devolveria de inmediato.
+      const destino = next && next.startsWith(panel) ? next : panel;
+      router.push(destino);
       router.refresh();
     } catch {
       setError("No se pudo conectar con el servidor.");

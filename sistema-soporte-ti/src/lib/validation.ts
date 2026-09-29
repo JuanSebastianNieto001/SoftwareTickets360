@@ -92,6 +92,40 @@ export const actualizarNombreAdminSchema = z.object({
   nombre: z.string().trim().min(3, "Escribe el nombre completo").max(120),
 });
 
+/**
+ * Minimo de la contrasena de una cuenta de soporte. No es un capricho: esa
+ * cuenta ve los datos de todos los solicitantes, y la URL del panel es
+ * publica. Se exige aqui y no solo en el formulario para que tambien aplique
+ * a quien llame la API directamente.
+ */
+export const MIN_CARACTERES_PASSWORD = 8;
+
+const passwordSegura = z
+  .string()
+  .min(MIN_CARACTERES_PASSWORD, `La contrasena debe tener al menos ${MIN_CARACTERES_PASSWORD} caracteres`)
+  .max(200);
+
+/** Alta de una cuenta de soporte desde el panel del lider de TI. */
+export const crearUsuarioSchema = z.object({
+  nombre: z.string().trim().min(3, "Escribe el nombre completo").max(120),
+  correo: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Escribe un correo valido")
+    .max(150),
+  password: passwordSegura,
+});
+
+/**
+ * Restablecimiento de contrasena. No pide la actual a proposito: la usa el
+ * lider de TI cuando alguien de soporte la olvido, que es justo cuando no
+ * puede aportarla.
+ */
+export const restablecerPasswordSchema = z.object({
+  password: passwordSegura,
+});
+
 export const loginSchema = z.object({
   // Texto libre, no .email(): el usuario de login no tiene que ser un correo
   // (ej. "admin"), es solo el identificador del admin en la tabla User.

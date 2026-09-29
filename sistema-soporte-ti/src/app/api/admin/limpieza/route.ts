@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { esAdmin, obtenerSesionActual } from "@/lib/auth";
+import { ACCIONES, registrar } from "@/lib/registro";
 
 // POST /api/admin/limpieza?dias=30
 // Borra tickets CERRADOS con mas de N dias desde su cierre, para evitar
@@ -12,6 +14,16 @@ import { prisma } from "@/lib/db";
 // src/app/api/admin/tickets/route.ts y .../tickets/[id]/route.ts) es el
 // mecanismo que sí usa el administrador dia a dia.
 export async function POST(request: NextRequest) {
+  // Borra tickets, asi que es exclusiva del lider de TI. El middleware solo
+  // comprueba que haya sesion; el rol se verifica aqui.
+  const sesion = await obtenerSesionActual();
+  if (!esAdmin(sesion)) {
+    return NextResponse.json(
+      { error: "Solo el administrador puede borrar tickets" },
+      { status: 403 }
+    );
+  }
+
   const diasParam = request.nextUrl.searchParams.get("dias");
   const dias = diasParam ? Number(diasParam) : 30;
 
@@ -25,6 +37,12 @@ export async function POST(request: NextRequest) {
   const resultado = await prisma.ticket.deleteMany({
     where: { estado: "CERRADO", fechaCierre: { lt: limite } },
   });
+
+  await registrar(
+    sesion,
+    ACCIONES.TICKETS_ELIMINADOS,
+    `Limpieza por antiguedad: elimino ${resultado.count} tickets cerrados hace mas de ${dias} dias`
+  );
 
   return NextResponse.json({
     eliminados: resultado.count,

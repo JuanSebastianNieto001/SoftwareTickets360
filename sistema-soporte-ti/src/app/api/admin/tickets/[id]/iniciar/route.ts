@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { obtenerSesionActual } from "@/lib/auth";
+import { ACCIONES, registrar } from "@/lib/registro";
 
 // POST /api/admin/tickets/:id/iniciar — el administrador marca "Voy en camino".
 // Cambia el estado a EN_PROCESO y registra fechaInicio + tiempoLlegada.
@@ -30,6 +31,13 @@ export async function POST(_request: Request, { params }: { params: { id: string
       adminId: sesion.userId,
     },
   });
+
+  await registrar(
+    sesion,
+    ACCIONES.TICKET_INICIADO,
+    `Marco "Voy en camino" para ${ticket.nombreSolicitante} (${ticket.categoria})`,
+    ticket.codigoTicket
+  );
 
   return NextResponse.json({ ticket: actualizado });
 }

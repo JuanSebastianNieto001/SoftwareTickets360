@@ -156,8 +156,15 @@ Abre `http://localhost:3000`:
 
 - Formulario publico de tickets: `http://localhost:3000/`
 - Seguimiento por codigo: `http://localhost:3000/seguimiento`
-- Panel administrador: `http://localhost:3000/admin/login`
-  (credenciales definidas en `.env`: `ADMIN_EMAIL` / `ADMIN_PASSWORD`)
+- Panel de soporte: `http://localhost:3000/soporte/login`
+  (credenciales en `.env`: `SOPORTE_EMAIL` / `SOPORTE_PASSWORD`)
+- Panel del lider de TI: `http://localhost:3000/admin/login`
+  (credenciales en `.env`: `ADMIN_EMAIL` / `ADMIN_PASSWORD`)
+
+Las dos URLs exigen iniciar sesion cada vez que la sesion expira (8 h) o se
+cierra. Quien entra con perfil de soporte y prueba `/admin` es devuelto a
+`/soporte`: el rol viaja firmado dentro del JWT, asi que no se puede fingir
+desde el navegador.
 
 ## Variables de entorno
 
@@ -166,7 +173,8 @@ Abre `http://localhost:3000`:
 | `DATABASE_URL` | Connection string agrupada de Supabase (pooler, puerto 6543). La usa la app en runtime. |
 | `DIRECT_URL` | Connection string directa de Supabase (puerto 5432). La usa Prisma solo para migraciones. |
 | `AUTH_SECRET` | Cadena larga y aleatoria usada para firmar la sesion del admin. Distinta en cada entorno. |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NOMBRE` | Usadas solo por `npm run seed` para crear/actualizar el usuario administrador. |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NOMBRE` | Usadas solo por `npm run seed` para crear/actualizar la cuenta del lider de TI (rol ADMIN). El seed aborta si falta la contrasena: no hay valor por defecto, a proposito. |
+| `SOPORTE_EMAIL` / `SOPORTE_PASSWORD` / `SOPORTE_NOMBRE` | Igual, para la cuenta de soporte (rol SOPORTE). Opcionales: sin `SOPORTE_PASSWORD` el seed no la crea y se puede crear despues desde el panel del lider. |
 
 Ambas connection strings de Supabase estan en el dashboard del proyecto:
 **Project Settings → Database → Connection string** (pestaña "Nodejs" /

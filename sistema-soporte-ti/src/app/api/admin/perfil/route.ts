@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { crearSesion, establecerCookieSesion, obtenerSesionActual } from "@/lib/auth";
+import { ACCIONES, registrar } from "@/lib/registro";
 import { actualizarNombreAdminSchema } from "@/lib/validation";
 
 // PATCH /api/admin/perfil — cambia el nombre visible del administrador.
@@ -39,7 +40,8 @@ export async function PATCH(request: NextRequest) {
     usuario = await prisma.user.update({
       where: { id: sesion.userId },
       data: { nombre: parsed.data.nombre },
-      select: { id: true, nombre: true, correo: true },
+      // El rol se trae porque hay que volver a firmarlo en el JWT mas abajo.
+      select: { id: true, nombre: true, correo: true, rol: true },
     });
   } catch {
     // Practicamente solo pasa si el usuario de la cookie ya no existe en la
@@ -51,12 +53,17 @@ export async function PATCH(request: NextRequest) {
   // firmar la cookie: si no, el saludo seguiria mostrando el anterior hasta
   // el proximo login. Esto reinicia las 8h de la sesion, lo cual es correcto
   // porque el admin acaba de interactuar con el panel.
+  // El rol tiene que volver a viajar en el token: si se omite, quien cambie
+  // su nombre se queda sin permisos hasta el proximo login.
   const token = await crearSesion({
     userId: usuario.id,
     correo: usuario.correo,
     nombre: usuario.nombre,
+    rol: usuario.rol === "ADMIN" ? "ADMIN" : "SOPORTE",
   });
   await establecerCookieSesion(token);
+
+  await registrar(sesion, ACCIONES.NOMBRE_CAMBIADO, `Cambio su nombre a "${usuario.nombre}"`);
 
   return NextResponse.json({ ok: true, nombre: usuario.nombre });
 }

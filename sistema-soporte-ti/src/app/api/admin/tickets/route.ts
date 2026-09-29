@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { esAdmin, obtenerSesionActual } from "@/lib/auth";
+import { ACCIONES, registrar } from "@/lib/registro";
 import { ORDEN_PRIORIDAD } from "@/lib/ticket";
 
 // Orden de la vista de admin: dentro de los activos, primero los pendientes
@@ -39,12 +41,13 @@ const CAMPOS_LISTADO = {
 
 // GET /api/admin/tickets?estado=ACTIVOS — listado para el panel. Protegido por middleware.
 //
-// ACTIVOS son solo los PENDIENTE: al marcar "Voy en camino" el ticket sale de
-// esta vista y pasa a la de "En proceso", que es donde se le hace seguimiento
-// hasta cerrarlo. Antes incluia tambien los EN_PROCESO y el ticket se quedaba
-// en la lista despues de tomarlo.
+// ACTIVOS son los que siguen abiertos: pendientes MAS en proceso. Al marcar
+// "Voy en camino" el ticket no se va de esta vista, solo cambia de aspecto
+// (ver AdminDashboard), porque quien lo tomo necesita seguirlo viendo hasta
+// cerrarlo sin cambiar de pestana. Tambien aparece en "En proceso", que sirve
+// para mirar solo los que ya estan en curso.
 //
-// `estado` acepta ACTIVOS (los que todavia nadie ha tomado, la vista inicial),
+// `estado` acepta ACTIVOS (pendientes + en proceso, que es la vista inicial),
 // o uno de PENDIENTE / EN_PROCESO / CERRADO. Sin parametro trae todo.
 export async function GET(request: NextRequest) {
   const estado = request.nextUrl.searchParams.get("estado");
@@ -53,7 +56,7 @@ export async function GET(request: NextRequest) {
 
   const filtroEstado =
     estado === "ACTIVOS"
-      ? { estado: "PENDIENTE" }
+      ? { estado: { in: ["PENDIENTE", "EN_PROCESO"] } }
       : estado && ["PENDIENTE", "EN_PROCESO", "CERRADO"].includes(estado)
         ? { estado }
         : {};
@@ -140,6 +143,16 @@ export async function GET(request: NextRequest) {
 // esta el borrado individual, que es una decision consciente sobre un
 // ticket concreto.
 export async function DELETE(request: NextRequest) {
+  // Solo el lider de TI. Es la operacion mas destructiva del sistema, y el
+  // middleware solo comprueba que haya sesion: el rol se verifica aqui.
+  const sesion = await obtenerSesionActual();
+  if (!esAdmin(sesion)) {
+    return NextResponse.json(
+      { error: "Solo el administrador puede borrar tickets" },
+      { status: 403 }
+    );
+  }
+
   const confirmacion = request.nextUrl.searchParams.get("confirmacion");
   if (confirmacion !== "ELIMINAR") {
     return NextResponse.json(
@@ -149,6 +162,12 @@ export async function DELETE(request: NextRequest) {
   }
 
   const resultado = await prisma.ticket.deleteMany({ where: { estado: "CERRADO" } });
+
+  await registrar(
+    sesion,
+    ACCIONES.TICKETS_ELIMINADOS,
+    `Borrado masivo: elimino ${resultado.count} tickets finalizados`
+  );
 
   return NextResponse.json({
     eliminados: resultado.count,

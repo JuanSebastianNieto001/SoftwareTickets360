@@ -76,7 +76,15 @@ const FILTROS = [
   { valor: "CERRADO", etiqueta: "Finalizados" },
 ] as const;
 
-export default function AdminDashboard() {
+/**
+ * `puedeEliminar` decide si se muestran los controles de borrado. Solo el
+ * lider de TI (rol ADMIN) los tiene; el soporte atiende y consulta.
+ *
+ * Ocultarlos es comodidad, no seguridad: quien manda la peticion a mano
+ * igual la haria. El permiso de verdad lo verifica el servidor en cada
+ * ruta de borrado, contra el rol firmado en el JWT.
+ */
+export default function AdminDashboard({ puedeEliminar = false }: { puedeEliminar?: boolean }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [contadores, setContadores] = useState<Contadores>(CONTADORES_VACIOS);
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]["valor"]>("ACTIVOS");
@@ -468,21 +476,23 @@ export default function AdminDashboard() {
         <a href="/api/admin/export/excel" className="btn-secondary ml-auto">
           Exportar finalizados
         </a>
-        <button
-          onClick={borrarFinalizados}
-          disabled={procesando === "__vaciar__" || contadores.CERRADO === 0}
-          title={
-            contadores.CERRADO === 0
-              ? "No hay tickets finalizados para borrar"
-              : "Borra los tickets finalizados; los abiertos no se tocan"
-          }
-          className="btn-danger"
-        >
-          <IconTrash className="h-4 w-4" />
-          {procesando === "__vaciar__"
-            ? "Borrando..."
-            : `Borrar finalizados (${contadores.CERRADO})`}
-        </button>
+        {puedeEliminar && (
+          <button
+            onClick={borrarFinalizados}
+            disabled={procesando === "__vaciar__" || contadores.CERRADO === 0}
+            title={
+              contadores.CERRADO === 0
+                ? "No hay tickets finalizados para borrar"
+                : "Borra los tickets finalizados; los abiertos no se tocan"
+            }
+            className="btn-danger"
+          >
+            <IconTrash className="h-4 w-4" />
+            {procesando === "__vaciar__"
+              ? "Borrando..."
+              : `Borrar finalizados (${contadores.CERRADO})`}
+          </button>
+        )}
       </div>
 
       {/* Resumen de cumplimiento de los finalizados en pantalla. Solo en la
@@ -527,7 +537,16 @@ export default function AdminDashboard() {
       ) : (
         <ul className="space-y-3">
           {ticketsVisibles.map((t) => (
-            <li key={t.id} className="card p-4">
+            // Los que ya se tomaron ("Voy en camino") no se van de la vista de
+            // activos, pero se distinguen: franja y fondo en el azul de marca,
+            // el mismo del chip "En proceso". Asi se ve de un vistazo que
+            // queda por atender y que ya esta en curso, sin cambiar de pestana.
+            <li
+              key={t.id}
+              className={`card p-4 ${
+                t.estado === "EN_PROCESO" ? "border-l-4 border-l-brand-500 bg-brand-50/40" : ""
+              }`}
+            >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -594,15 +613,17 @@ export default function AdminDashboard() {
                       {detalleAbierto === t.id ? "Ocultar solucion" : "Ver solucion"}
                     </button>
                   )}
-                  <button
-                    onClick={() => eliminarTicket(t.id, t.codigoTicket)}
-                    disabled={procesando === t.id}
-                    title="Eliminar ticket"
-                    aria-label="Eliminar ticket"
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                  >
-                    <IconTrash className="h-4 w-4" />
-                  </button>
+                  {puedeEliminar && (
+                    <button
+                      onClick={() => eliminarTicket(t.id, t.codigoTicket)}
+                      disabled={procesando === t.id}
+                      title="Eliminar ticket"
+                      aria-label="Eliminar ticket"
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                    >
+                      <IconTrash className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </div>
 

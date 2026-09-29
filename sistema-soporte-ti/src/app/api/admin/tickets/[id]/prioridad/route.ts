@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { obtenerSesionActual } from "@/lib/auth";
+import { ACCIONES, registrar } from "@/lib/registro";
 import { cambiarPrioridadSchema } from "@/lib/validation";
 
 // PATCH /api/admin/tickets/:id/prioridad — el administrador ajusta la
@@ -52,6 +53,13 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     where: { id: ticket.id },
     data: { prioridad: parsed.data.prioridad },
   });
+
+  await registrar(
+    sesion,
+    ACCIONES.PRIORIDAD_CAMBIADA,
+    `Cambio la prioridad de ${ticket.prioridad} a ${parsed.data.prioridad}`,
+    ticket.codigoTicket
+  );
 
   return NextResponse.json({ ticket: actualizado });
 }

@@ -27,11 +27,27 @@ function getSecretKey() {
   return new TextEncoder().encode(secret);
 }
 
+/** Perfiles del sistema. ADMIN es el lider de TI; SOPORTE, quien atiende. */
+export const ROLES = ["ADMIN", "SOPORTE"] as const;
+export type Rol = (typeof ROLES)[number];
+
 export type SesionPayload = {
   userId: string;
   correo: string;
   nombre: string;
+  rol: Rol;
 };
+
+/**
+ * Solo el administrador puede borrar tickets, gestionar cuentas y leer la
+ * bitacora. El soporte atiende y consulta, pero no destruye nada.
+ *
+ * Se compara contra el rol que viene FIRMADO en el JWT, no contra uno que
+ * mande el cliente: el token no se puede alterar sin AUTH_SECRET.
+ */
+export function esAdmin(sesion: SesionPayload | null): boolean {
+  return sesion?.rol === "ADMIN";
+}
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);

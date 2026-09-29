@@ -28,11 +28,39 @@ model User {
   nombre       String
   correo       String   @unique
   area         String?
-  rol          String   @default("ADMIN") // ADMIN
+  // ADMIN (lider de TI) o SOPORTE. El default es SOPORTE porque las cuentas
+  // que se crean desde el panel son de soporte: la de administrador se
+  // siembra aparte con el seed, no se crea desde la interfaz.
+  rol          String   @default("SOPORTE") // ADMIN | SOPORTE
   passwordHash String
   creadoEn     DateTime @default(now())
 
-  ticketsAtendidos Ticket[] @relation("AdminTickets")
+  ticketsAtendidos Ticket[]            @relation("AdminTickets")
+  actividad        RegistroActividad[]
+}
+
+// Bitacora de lo que hace cada usuario autenticado: quien entro, quien tomo
+// un ticket, quien lo cerro, quien borro que. La consulta el lider de TI
+// desde el panel de administrador.
+//
+// Dos campos estan desnormalizados a proposito:
+//   - usuarioNombre guarda el nombre suelto ademas de la relacion, para que
+//     el registro siga siendo legible si la cuenta se elimina. Es justo
+//     cuando mas importa saber quien hizo algo.
+//   - ticketCodigo es texto y no una relacion, porque el registro de un
+//     borrado tiene que sobrevivir a la desaparicion del ticket.
+model RegistroActividad {
+  id            String   @id @default(cuid())
+  fecha         DateTime @default(now())
+  usuarioId     String?
+  usuario       User?    @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  usuarioNombre String
+  accion        String
+  detalle       String
+  ticketCodigo  String?
+
+  @@index([fecha])
+  @@index([usuarioId])
 }
 
 model Ticket {

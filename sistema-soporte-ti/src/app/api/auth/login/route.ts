@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { crearSesion, establecerCookieSesion, verificarPassword } from "@/lib/auth";
+import { crearSesion, establecerCookieSesion, verificarPassword, type Rol } from "@/lib/auth";
+import { ACCIONES, registrar } from "@/lib/registro";
 import { loginSchema } from "@/lib/validation";
 
 // POST /api/auth/login — unico punto de entrada de autenticacion del panel.
@@ -32,8 +33,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Correo o contrasena incorrectos" }, { status: 401 });
   }
 
-  const token = await crearSesion({ userId: usuario.id, correo: usuario.correo, nombre: usuario.nombre });
+  const sesion = {
+    userId: usuario.id,
+    correo: usuario.correo,
+    nombre: usuario.nombre,
+    rol: (usuario.rol === "ADMIN" ? "ADMIN" : "SOPORTE") as Rol,
+  };
+
+  const token = await crearSesion(sesion);
   await establecerCookieSesion(token);
 
-  return NextResponse.json({ ok: true, nombre: usuario.nombre });
+  await registrar(sesion, ACCIONES.INICIO_SESION, `Ingreso al panel como ${sesion.rol}`);
+
+  // El rol viaja de vuelta para que el formulario mande a cada quien a su
+  // panel: el lider a /admin, el soporte a /soporte.
+  return NextResponse.json({ ok: true, nombre: usuario.nombre, rol: sesion.rol });
 }

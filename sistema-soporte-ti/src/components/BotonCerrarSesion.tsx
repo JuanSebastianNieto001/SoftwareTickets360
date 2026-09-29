@@ -1,17 +1,20 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { IconLogout } from "@/components/icons";
 
 export default function BotonCerrarSesion() {
   const router = useRouter();
+  const pathname = usePathname();
   const [cargando, setCargando] = useState(false);
 
   async function cerrarSesion() {
     setCargando(true);
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/admin/login");
+    // Cada panel vuelve a su propio login: el boton lo comparten /admin y
+    // /soporte, asi que el destino sale de donde estaba el usuario.
+    router.push(pathname.startsWith("/soporte") ? "/soporte/login" : "/admin/login");
     router.refresh();
   }
 
