@@ -15,20 +15,36 @@
 // mensajes en rojo debajo de cada campo.
 import { useState, FormEvent } from "react";
 import {
+  ALCANCES,
   AREA_ASESOR,
   AREAS,
   CATEGORIAS,
+  ETIQUETA_ALCANCE,
+  PRIMERA_RESPUESTA,
   TEAM_LEADERS,
-  prioridadParaCategoria,
+  prioridadParaTicket,
+  type Alcance,
+  type Prioridad,
 } from "@/lib/ticket";
+import { HORARIO_TEXTO } from "@/lib/horario";
 import { crearTicketSchema } from "@/lib/validation";
 import PrioridadBadge from "@/components/PrioridadBadge";
 import { IconUser, IconPuesto, IconPin, IconTag, IconPeople, IconMessage, IconSend } from "@/components/icons";
 
+/** Lo que responde el servidor sobre la cola al crear el ticket (ver src/lib/cola.ts). */
+type Cola = {
+  posicion: number;
+  enCola: number;
+  enAtencion: number;
+  estimadoMinutos: number;
+  estimadoTexto: string;
+  dentroDeHorario: boolean;
+};
+
 type Estado =
   | { paso: "formulario" }
   | { paso: "enviando" }
-  | { paso: "exito"; codigo: string }
+  | { paso: "exito"; codigo: string; prioridad: Prioridad; cola: Cola }
   | { paso: "error"; mensaje: string };
 
 const OBLIGATORIO = "Este campo es obligatorio";
@@ -39,8 +55,10 @@ export default function TicketForm() {
   // para poder descartar cualquier caracter que no sea digito mientras se
   // escribe o se pega, no solo al enviar.
   const [numeroPuesto, setNumeroPuesto] = useState("");
-  // Se guarda solo para poder mostrar la prioridad que le va a corresponder.
+  // Categoria y alcance se guardan para poder mostrar de antemano la
+  // prioridad que le va a corresponder al ticket: entre los dos la definen.
   const [categoria, setCategoria] = useState("");
+  const [alcance, setAlcance] = useState("");
   // El area se controla porque de ella dependen los campos que solo aplican
   // a los asesores (team leader y numero de puesto).
   const [area, setArea] = useState("");
@@ -74,6 +92,7 @@ export default function TicketForm() {
       area: String(form.get("area") ?? ""),
       teamLeader: String(form.get("teamLeader") ?? ""),
       categoria: String(form.get("categoria") ?? ""),
+      alcance: String(form.get("alcance") ?? ""),
       descripcion: String(form.get("descripcion") ?? ""),
     };
 
@@ -83,7 +102,7 @@ export default function TicketForm() {
     // Zod no ejecuta el superRefine (la regla del team leader) cuando algun
     // otro campo ya fallo: si dependieramos solo de Zod, ese aviso saldria
     // recien en un segundo intento en vez de junto con los demas.
-    const requeridos = ["nombreSolicitante", "area", "categoria", "descripcion"];
+    const requeridos = ["nombreSolicitante", "area", "categoria", "alcance", "descripcion"];
     if (esAsesor) requeridos.push("teamLeader", "numeroPuesto");
     for (const campo of requeridos) {
       if (String(payload[campo as keyof typeof payload] ?? "").trim() === "") {
@@ -106,7 +125,15 @@ export default function TicketForm() {
       setErrores(nuevos);
       setEstado({ paso: "formulario" });
       // Llevar el foco al primer campo con problema, en el orden del formulario.
-      const orden = ["nombreSolicitante", "area", "teamLeader", "numeroPuesto", "categoria", "descripcion"];
+      const orden = [
+        "nombreSolicitante",
+        "area",
+        "teamLeader",
+        "numeroPuesto",
+        "categoria",
+        "alcance",
+        "descripcion",
+      ];
       const primero = orden.find((campo) => nuevos[campo]);
       if (primero) document.getElementById(primero)?.focus();
       return;
@@ -130,13 +157,26 @@ export default function TicketForm() {
         setEstado({ paso: "error", mensaje: data.error ?? "No se pudo crear el ticket" });
         return;
       }
-      setEstado({ paso: "exito", codigo: data.codigoTicket });
+      setEstado({
+        paso: "exito",
+        codigo: data.codigoTicket,
+        prioridad: data.prioridad,
+        cola: data.cola,
+      });
     } catch {
       setEstado({ paso: "error", mensaje: "No se pudo conectar con el servidor. Intenta de nuevo." });
     }
   }
 
   if (estado.paso === "exito") {
+    const { cola, prioridad } = estado;
+    // El ticket recien creado ya cuenta dentro de `enCola`, asi que "delante"
+    // es lo que hay que esperar antes de que llegue su turno.
+    const delante = Math.max(0, cola.posicion - 1);
+    // Lo pactado en el acta para esta prioridad. Cae a MEDIA si llegara un
+    // valor inesperado, igual que hace PrioridadBadge.
+    const { compromiso } = PRIMERA_RESPUESTA[prioridad] ?? PRIMERA_RESPUESTA.MEDIA;
+
     return (
       <div className="card p-6 text-center">
         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
@@ -149,6 +189,70 @@ export default function TicketForm() {
         <p className="mt-3 rounded-lg bg-slate-100 py-3 text-2xl font-bold tracking-wide text-brand-700">
           {estado.codigo}
         </p>
+
+        {/* Posicion en la cola y estimado de primera respuesta. El calculo
+            viene del servidor (src/lib/cola.ts) y depende de la prioridad y
+            de cuantos tickets haya esperando en ese momento. */}
+        <div className="mt-5 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <span className="text-sm text-slate-600">Tu posicion en la cola para este ticket es:</span>
+            <span className="text-2xl font-bold leading-none text-brand-700">
+              #{cola.posicion}
+            </span>
+          </div>
+
+          <p className="text-sm text-slate-600">
+            {delante === 0
+              ? "Eres el siguiente en ser atendido."
+              : delante === 1
+                ? "Hay 1 ticket antes que el tuyo."
+                : `Hay ${delante} tickets antes que el tuyo.`}{" "}
+            {cola.enCola === 1
+              ? "Es el unico pendiente en este momento."
+              : `En total hay ${cola.enCola} tickets pendientes`}
+            {cola.enCola > 1 && cola.enAtencion > 0
+              ? ` y ${cola.enAtencion} en atencion.`
+              : cola.enCola > 1
+                ? "."
+                : ""}
+          </p>
+
+          <dl className="space-y-2 border-t border-slate-200 pt-3 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <dt className="text-slate-600">Prioridad</dt>
+              <dd>
+                <PrioridadBadge prioridad={prioridad} />
+              </dd>
+            </div>
+            {/* Lo pactado en el acta: para ALTA es un tiempo, para MEDIA y
+                BAJA es "En orden de llegada". Se muestra aparte del estimado
+                para no confundir una proyeccion con un compromiso. */}
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <dt className="text-slate-600">Tiempo de primera respuesta</dt>
+              <dd className="font-medium text-slate-900">{compromiso}</dd>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <dt className="text-slate-600">Estimado segun la cola de ahora</dt>
+              <dd className="font-semibold text-slate-900">{cola.estimadoTexto}</dd>
+            </div>
+          </dl>
+
+          {/* Radicado fuera de la jornada: el acta cuenta los tiempos solo
+              dentro del horario laboral, asi que conviene decirlo y no dejar
+              que la fecha del estimado se lea como una demora. */}
+          {!cola.dentroDeHorario && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Radicaste tu ticket fuera del horario de atencion ({HORARIO_TEXTO}). El tiempo
+              empieza a contar desde la siguiente apertura.
+            </p>
+          )}
+
+          <p className="text-xs text-slate-500">
+            El estimado se calcula con la prioridad de tu caso y con lo que esta
+            tomando atender los tickets que hay delante. Puede variar.
+          </p>
+        </div>
+
         <div className="mt-5 flex justify-center gap-3">
           <a href={`/seguimiento?codigo=${estado.codigo}`} className="btn-primary">
             Consultar estado
@@ -158,6 +262,7 @@ export default function TicketForm() {
             onClick={() => {
               setNumeroPuesto("");
               setCategoria("");
+              setAlcance("");
               setArea("");
               setEstado({ paso: "formulario" });
             }}
@@ -283,18 +388,10 @@ export default function TicketForm() {
           </div>
         )}
 
-        {/* Sin el campo de puesto al lado, la categoria queda sola en su fila:
-            se estira a lo ancho para que no quede media fila vacia. */}
-        <div className={esAsesor ? undefined : "sm:col-span-2"}>
+        <div>
           <label className="label" htmlFor="categoria">
             <IconTag className="h-4 w-4 shrink-0 text-brand-500" />
             Categoria
-            {categoria && (
-              <span className="ml-auto flex shrink-0 items-center gap-1.5 font-normal text-slate-500">
-                Prioridad
-                <PrioridadBadge prioridad={prioridadParaCategoria(categoria)} />
-              </span>
-            )}
           </label>
           <select
             className={claseCampo("categoria")}
@@ -318,6 +415,47 @@ export default function TicketForm() {
             ))}
           </select>
           {mensajeError("categoria")}
+        </div>
+
+        {/* Alcance de la falla. Es lo que decide si el ticket es CRITICO
+            (Acta N.o 002: "un area completa, mas de 10 personas"), asi que
+            la prioridad se muestra aqui y no en la categoria: hasta no
+            elegir ambos no se sabe cual va a ser.
+            Con el campo de puesto al lado queda solo en su fila, asi que se
+            estira para no dejar media fila vacia. */}
+        <div className={esAsesor ? "sm:col-span-2" : undefined}>
+          <label className="label" htmlFor="alcance">
+            <IconPeople className="h-4 w-4 shrink-0 text-brand-500" />
+            A cuantas personas afecta
+            {categoria && alcance && (
+              <span className="ml-auto flex shrink-0 items-center gap-1.5 font-normal text-slate-500">
+                Prioridad
+                <PrioridadBadge prioridad={prioridadParaTicket(categoria, alcance)} />
+              </span>
+            )}
+          </label>
+          <select
+            className={claseCampo("alcance")}
+            id="alcance"
+            name="alcance"
+            required
+            value={alcance}
+            aria-invalid={Boolean(errores.alcance)}
+            onChange={(e) => {
+              setAlcance(e.target.value);
+              limpiarError("alcance");
+            }}
+          >
+            <option value="" disabled>
+              Selecciona una opcion
+            </option>
+            {ALCANCES.map((a) => (
+              <option key={a} value={a}>
+                {ETIQUETA_ALCANCE[a as Alcance]}
+              </option>
+            ))}
+          </select>
+          {mensajeError("alcance")}
         </div>
       </div>
 

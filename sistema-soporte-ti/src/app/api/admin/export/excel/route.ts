@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { prisma } from "@/lib/db";
-import { formatearMinutos } from "@/lib/ticket";
+import {
+  ETIQUETA_ALCANCE,
+  evaluarTiempoSolucion,
+  formatearMinutos,
+  type Alcance,
+} from "@/lib/ticket";
 
 // Obligatorio: esta ruta no lee `request` ni cookies, y sin esto Next.js la
 // trata como estatica, la ejecuta una sola vez durante el build y despues
@@ -39,6 +44,7 @@ export async function GET() {
     { header: "Area", key: "area", width: 18 },
     { header: "Team leader", key: "teamLeader", width: 22 },
     { header: "Categoria", key: "categoria", width: 20 },
+    { header: "Alcance", key: "alcance", width: 14 },
     { header: "Prioridad", key: "prioridad", width: 12 },
     { header: "Descripcion", key: "descripcion", width: 40 },
     { header: "Solucion", key: "solucion", width: 40 },
@@ -49,6 +55,12 @@ export async function GET() {
     { header: "Tiempo de llegada", key: "tLlegada", width: 18 },
     { header: "Tiempo de resolucion", key: "tResolucion", width: 20 },
     { header: "Tiempo total", key: "tTotal", width: 16 },
+    // Las dos ultimas existen para poder calcular el KPI-S2 del Acta N.o 002
+    // ("porcentaje de tickets solucionados dentro del tiempo maximo definido
+    // segun la prioridad") directamente sobre este archivo, que el acta
+    // declara fuente oficial de medicion.
+    { header: "Tiempo maximo (SLA)", key: "slaLimite", width: 18 },
+    { header: "Cumple SLA", key: "slaCumple", width: 12 },
   ];
 
   hoja.getRow(1).font = { bold: true };
@@ -61,6 +73,8 @@ export async function GET() {
     d ? d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "";
 
   for (const t of tickets) {
+    const sla = evaluarTiempoSolucion(t.prioridad, t.tiempoResolucion);
+
     hoja.addRow({
       codigo: t.codigoTicket,
       solicitante: t.nombreSolicitante,
@@ -68,6 +82,7 @@ export async function GET() {
       area: t.area,
       teamLeader: t.teamLeader,
       categoria: t.categoria,
+      alcance: ETIQUETA_ALCANCE[t.alcance as Alcance] ?? t.alcance,
       prioridad: t.prioridad,
       descripcion: t.descripcion,
       solucion: t.solucion ?? "",
@@ -78,6 +93,10 @@ export async function GET() {
       tLlegada: formatearMinutos(t.tiempoLlegada),
       tResolucion: formatearMinutos(t.tiempoResolucion),
       tTotal: formatearMinutos(t.tiempoTotal),
+      // En CRITICA el acta no fija limite ("depende del tercero"), asi que
+      // esos tickets quedan fuera del calculo en vez de contar como fallo.
+      slaLimite: sla ? formatearMinutos(sla.limite) : "No aplica",
+      slaCumple: sla ? (sla.vencido ? "No" : "Si") : "No aplica",
     });
   }
 

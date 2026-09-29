@@ -1,0 +1,15 @@
+-- Alcance de la falla: a cuanta gente deja sin trabajar.
+--
+-- Lo exige el numeral 7 del Acta N.o 002, que define la prioridad CRITICA
+-- por alcance ("falla que detiene la operacion de la compania o de un area
+-- completa, mas de 10 personas"). Eso no se puede deducir de la categoria,
+-- que es como el sistema asignaba la prioridad hasta ahora.
+--
+-- Valores: INDIVIDUAL | EQUIPO | AREA. Se guarda como texto y no como enum
+-- nativo por la misma razon que estado y prioridad (ver schema.prisma): el
+-- proyecto tambien puede correr sobre SQLite en desarrollo.
+--
+-- El DEFAULT deja en INDIVIDUAL los tickets creados antes de que el campo
+-- existiera, que es el supuesto correcto: si nadie reporto un area caida,
+-- no la habia.
+ALTER TABLE "Ticket" ADD COLUMN "alcance" TEXT NOT NULL DEFAULT 'INDIVIDUAL';

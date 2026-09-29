@@ -2,7 +2,7 @@
 // (src/app/api/**): la misma definicion valida en ambos lados, asi que un
 // mensaje de error cambiado aqui se refleja en toda la app.
 import { z } from "zod";
-import { AREA_ASESOR, AREAS, CATEGORIAS, TEAM_LEADERS } from "@/lib/ticket";
+import { ALCANCES, AREA_ASESOR, AREAS, CATEGORIAS, TEAM_LEADERS } from "@/lib/ticket";
 
 const crearTicketBase = z.object({
   nombreSolicitante: z.string().trim().min(3, "Escribe tu nombre completo").max(120),
@@ -11,6 +11,11 @@ const crearTicketBase = z.object({
   numeroPuesto: z.string().trim().max(10).optional(),
   area: z.enum(AREAS, { errorMap: () => ({ message: "Selecciona un area valida" }) }),
   categoria: z.enum(CATEGORIAS, { errorMap: () => ({ message: "Selecciona una categoria valida" }) }),
+  // Decide si el ticket es CRITICO (ver prioridadParaTicket): por eso se
+  // valida como los demas catalogos y no se acepta cualquier texto.
+  alcance: z.enum(ALCANCES, {
+    errorMap: () => ({ message: "Indica a cuantas personas afecta la falla" }),
+  }),
   descripcion: z.string().trim().min(10, "Describe el problema con mas detalle (minimo 10 caracteres)").max(2000),
   // Solo obligatorio cuando el area es Asesor; la regla esta abajo, en el
   // superRefine, porque depende de otro campo del mismo objeto.

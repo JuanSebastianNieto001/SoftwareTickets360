@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { calcularEstadoCola } from "@/lib/cola";
 import { generarCodigoTicket } from "@/lib/codigoTicket";
-import { prioridadParaCategoria } from "@/lib/ticket";
+import { prioridadParaTicket } from "@/lib/ticket";
 import { crearTicketSchema } from "@/lib/validation";
 
 // POST /api/tickets — creacion publica de un ticket. No requiere autenticacion.
@@ -31,16 +32,24 @@ export async function POST(request: NextRequest) {
       // Ya viene normalizado por el schema: "" si el area no es Asesor.
       teamLeader: data.teamLeader,
       categoria: data.categoria,
+      alcance: data.alcance,
       descripcion: data.descripcion,
-      // La prioridad no la elige quien reporta: sale de la categoria.
-      prioridad: prioridadParaCategoria(data.categoria),
+      // La prioridad no la elige quien reporta: sale de la categoria y del
+      // alcance de la falla (ver prioridadParaTicket).
+      prioridad: prioridadParaTicket(data.categoria, data.alcance),
       estado: "PENDIENTE",
     },
   });
 
+  // Se calcula DESPUES de crear el ticket, para que la posicion lo incluya a
+  // el y no quede desfasada respecto a lo que vera el administrador.
+  const cola = await calcularEstadoCola(ticket);
+
   return NextResponse.json(
     {
       codigoTicket: ticket.codigoTicket,
+      prioridad: ticket.prioridad,
+      cola,
       mensaje: "Ticket creado correctamente. Guarda tu codigo para hacerle seguimiento.",
     },
     { status: 201 }

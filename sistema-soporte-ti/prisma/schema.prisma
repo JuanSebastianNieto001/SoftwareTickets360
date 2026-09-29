@@ -51,9 +51,15 @@ model Ticket {
   // (src/lib/ticket.ts), no es enum por la misma razon que estado/prioridad.
   teamLeader         String    @default("")
   categoria          String
+  // A cuanta gente afecta la falla: INDIVIDUAL | EQUIPO | AREA. Lo pide el
+  // formulario porque el Acta N.o 002 define la prioridad CRITICA por
+  // alcance ("un area completa, mas de 10 personas") y eso no se puede
+  // deducir de la categoria. Default INDIVIDUAL para que la migracion no
+  // falle sobre los tickets creados antes de que existiera el campo.
+  alcance            String    @default("INDIVIDUAL")
   descripcion        String
   estado             String    @default("PENDIENTE") // PENDIENTE | EN_PROCESO | CERRADO
-  prioridad          String    @default("MEDIA")      // BAJA | MEDIA | ALTA
+  prioridad          String    @default("MEDIA")      // BAJA | MEDIA | ALTA | CRITICA
 
   fechaCreacion      DateTime  @default(now())
   fechaInicio        DateTime?

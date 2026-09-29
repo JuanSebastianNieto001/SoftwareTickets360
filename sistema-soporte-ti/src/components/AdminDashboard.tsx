@@ -18,7 +18,23 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import EstadoBadge from "@/components/EstadoBadge";
 import PrioridadBadge from "@/components/PrioridadBadge";
 import { IconTrash } from "@/components/icons";
-import { TEAM_LEADERS, formatearFechaHora, formatearMinutos } from "@/lib/ticket";
+import {
+  TEAM_LEADERS,
+  evaluarTiempoSolucion,
+  formatearFechaHora,
+  formatearMinutos,
+} from "@/lib/ticket";
+
+/**
+ * Minutos transcurridos desde una fecha hasta ahora. Se recalcula en cada
+ * render, y como el panel refresca solo cada INTERVALO_ACTUALIZACION_MS, el
+ * contador de los tickets en proceso avanza sin necesidad de un timer
+ * aparte.
+ */
+function minutosDesde(fecha: string | null): number | null {
+  if (!fecha) return null;
+  return Math.max(0, Math.round((Date.now() - new Date(fecha).getTime()) / 60000));
+}
 
 const INTERVALO_ACTUALIZACION_MS = 20000;
 // Espera antes de buscar mientras se escribe, para no lanzar una consulta a
@@ -425,12 +441,32 @@ export default function AdminDashboard() {
               {/* Solo se muestra cuanto tomo resolverlo (desde "Voy en camino"
                   hasta el cierre). El tiempo de llegada y el total se siguen
                   calculando y guardando, y salen en el Excel, pero en el panel
-                  confundian mas de lo que ayudaban. */}
-              {t.estado === "CERRADO" && (
-                <div className="mt-3 text-xs">
+                  confundian mas de lo que ayudaban.
+                  Al lado va el cumplimiento del tiempo maximo de solucion del
+                  Acta N.o 002, que es el criterio del indicador KPI-S2. */}
+              {(t.estado === "CERRADO" || t.estado === "EN_PROCESO") && (
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
                   <span className="inline-block rounded bg-slate-50 px-2 py-1">
-                    Se resolvio en: {formatearMinutos(t.tiempoResolucion)}
+                    {t.estado === "CERRADO"
+                      ? `Se resolvio en: ${formatearMinutos(t.tiempoResolucion)}`
+                      : `Lleva abierto: ${formatearMinutos(minutosDesde(t.fechaInicio))}`}
                   </span>
+                  {(() => {
+                    const transcurrido =
+                      t.estado === "CERRADO" ? t.tiempoResolucion : minutosDesde(t.fechaInicio);
+                    const sla = evaluarTiempoSolucion(t.prioridad, transcurrido);
+                    if (!sla) return null;
+                    return (
+                      <span
+                        className={`inline-block rounded px-2 py-1 font-medium ${
+                          sla.vencido ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"
+                        }`}
+                      >
+                        {sla.vencido ? "SLA vencido" : "Dentro del SLA"} · maximo{" "}
+                        {formatearMinutos(sla.limite)}
+                      </span>
+                    );
+                  })()}
                 </div>
               )}
 
