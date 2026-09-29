@@ -266,3 +266,60 @@ export const ETIQUETA_PRIORIDAD: Record<Prioridad, string> = {
   ALTA: "Alta",
   CRITICA: "Critica",
 };
+
+/**
+ * Orden de atencion de la cola: primero la prioridad mas alta y, dentro de
+ * la misma prioridad, el que lleva mas tiempo esperando. El numero solo
+ * sirve para comparar (menor = se atiende antes).
+ *
+ * Lo usan el calculo de la posicion en la cola (src/lib/cola.ts) y el
+ * listado de pendientes del panel. Los dos tienen que coincidir: si se
+ * separan, la posicion que se le prometio al usuario deja de ser cierta.
+ */
+export const ORDEN_PRIORIDAD: Record<Prioridad, number> = {
+  CRITICA: 0,
+  ALTA: 1,
+  MEDIA: 2,
+  BAJA: 3,
+};
+
+/** Prioridades que se atienden ANTES que la dada. */
+export function prioridadesSuperioresA(prioridad: string): Prioridad[] {
+  const orden = ORDEN_PRIORIDAD[prioridad as Prioridad] ?? ORDEN_PRIORIDAD.MEDIA;
+  return PRIORIDADES.filter((p) => ORDEN_PRIORIDAD[p] < orden);
+}
+
+/**
+ * Cuanto se asume que ocupa cada ticket cuando todavia no hay historial del
+ * cual sacar un promedio real (base recien estrenada, sin tickets cerrados).
+ */
+export const MINUTOS_POR_TICKET_POR_DEFECTO = 15;
+
+/**
+ * Estimado de primera respuesta, en minutos de trabajo: la meta de la
+ * prioridad mas el tiempo que tomara despachar lo que hay delante. Los
+ * tickets que ya estan en atencion cuentan como "delante" aunque no esten en
+ * la cola, porque igual tienen ocupado al tecnico.
+ *
+ * Cuando la prioridad no tiene meta propia (MEDIA y BAJA, que el acta
+ * atiende "en orden de llegada") el estimado es solo la espera de la cola,
+ * que es justo lo que significa esa frase.
+ */
+export function estimarPrimeraRespuesta(
+  prioridad: string,
+  ticketsDelante: number,
+  minutosPorTicket: number
+): number {
+  const meta = slaParaPrioridad(prioridad).minutosPrimeraRespuesta ?? 0;
+  return meta + Math.max(0, ticketsDelante) * Math.max(1, Math.round(minutosPorTicket));
+}
+
+/**
+ * Redondeo "amable" del estimado antes de mostrarlo: a multiplos de 5
+ * minutos por debajo de una hora y de 15 por encima. Prometer "1 h 30 min"
+ * es honesto; prometer "87 min" finge una precision que no tenemos.
+ */
+export function redondearEstimado(minutos: number): number {
+  const paso = minutos < 60 ? 5 : 15;
+  return Math.max(paso, Math.ceil(minutos / paso) * paso);
+}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { calcularEstadoCola } from "@/lib/cola";
 import { generarCodigoTicket } from "@/lib/codigoTicket";
 import { prioridadParaCategoria } from "@/lib/ticket";
 import { crearTicketSchema } from "@/lib/validation";
@@ -38,9 +39,15 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  // Se calcula DESPUES de crear el ticket, para que la posicion lo incluya a
+  // el y no quede desfasada respecto a lo que vera el administrador.
+  const cola = await calcularEstadoCola(ticket);
+
   return NextResponse.json(
     {
       codigoTicket: ticket.codigoTicket,
+      prioridad: ticket.prioridad,
+      cola,
       mensaje: "Ticket creado correctamente. Guarda tu codigo para hacerle seguimiento.",
     },
     { status: 201 }
