@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { ORDEN_PRIORIDAD } from "@/lib/ticket";
 
 // Orden de la vista de admin: dentro de los activos, primero los pendientes
 // y luego los que ya estan en proceso. Se ordena en JS despues del fetch (no
@@ -38,7 +39,12 @@ const CAMPOS_LISTADO = {
 
 // GET /api/admin/tickets?estado=ACTIVOS — listado para el panel. Protegido por middleware.
 //
-// `estado` acepta ACTIVOS (pendientes + en proceso, que es la vista inicial),
+// ACTIVOS son solo los PENDIENTE: al marcar "Voy en camino" el ticket sale de
+// esta vista y pasa a la de "En proceso", que es donde se le hace seguimiento
+// hasta cerrarlo. Antes incluia tambien los EN_PROCESO y el ticket se quedaba
+// en la lista despues de tomarlo.
+//
+// `estado` acepta ACTIVOS (los que todavia nadie ha tomado, la vista inicial),
 // o uno de PENDIENTE / EN_PROCESO / CERRADO. Sin parametro trae todo.
 export async function GET(request: NextRequest) {
   const estado = request.nextUrl.searchParams.get("estado");
@@ -47,7 +53,7 @@ export async function GET(request: NextRequest) {
 
   const filtroEstado =
     estado === "ACTIVOS"
-      ? { estado: { in: ["PENDIENTE", "EN_PROCESO"] } }
+      ? { estado: "PENDIENTE" }
       : estado && ["PENDIENTE", "EN_PROCESO", "CERRADO"].includes(estado)
         ? { estado }
         : {};
@@ -73,11 +79,23 @@ export async function GET(request: NextRequest) {
   tickets.sort((a, b) => {
     const diffEstado = (ORDEN_ESTADO[a.estado] ?? 99) - (ORDEN_ESTADO[b.estado] ?? 99);
     if (diffEstado !== 0) return diffEstado;
-    // Los finalizados se ordenan por cierre mas reciente (es un historial);
-    // los activos, por creacion mas reciente.
+    // Los finalizados se ordenan por cierre mas reciente (es un historial).
     if (a.estado === "CERRADO" && b.estado === "CERRADO") {
       return (b.fechaCierre?.getTime() ?? 0) - (a.fechaCierre?.getTime() ?? 0);
     }
+    // Los pendientes salen en el MISMO orden que se le prometio a quien
+    // radico el ticket (ver src/lib/cola.ts): primero la prioridad mas alta
+    // y, a igual prioridad, el que lleva mas tiempo esperando. Si este orden
+    // y el de la cola se separan, la posicion que se le mostro al usuario
+    // deja de ser cierta.
+    if (a.estado === "PENDIENTE" && b.estado === "PENDIENTE") {
+      const diffPrioridad =
+        (ORDEN_PRIORIDAD[a.prioridad as keyof typeof ORDEN_PRIORIDAD] ?? 99) -
+        (ORDEN_PRIORIDAD[b.prioridad as keyof typeof ORDEN_PRIORIDAD] ?? 99);
+      if (diffPrioridad !== 0) return diffPrioridad;
+      return a.fechaCreacion.getTime() - b.fechaCreacion.getTime();
+    }
+    // Los que ya estan en proceso, por creacion mas reciente.
     return b.fechaCreacion.getTime() - a.fechaCreacion.getTime();
   });
 
