@@ -39,13 +39,20 @@ export type EstadoCola = {
  *
  * Ojo: la prioridad de un ticket puede cambiar despues, si el administrador
  * la ajusta desde el panel. Este calculo es una foto del momento en que se
- * radica, no una promesa que se recalcule sola.
+ * hace, no una promesa que se recalcule sola.
+ *
+ * `desde` es el instante sobre el que se proyecta el estimado: al radicar es
+ * la fecha de creacion; en la consulta de seguimiento es "ahora", para que el
+ * usuario vea lo que le falta y no lo que le faltaba cuando lo creo.
  */
-export async function calcularEstadoCola(ticket: {
-  id: string;
-  prioridad: string;
-  fechaCreacion: Date;
-}): Promise<EstadoCola> {
+export async function calcularEstadoCola(
+  ticket: {
+    id: string;
+    prioridad: string;
+    fechaCreacion: Date;
+  },
+  desde: Date = ticket.fechaCreacion
+): Promise<EstadoCola> {
   const superiores = prioridadesSuperioresA(ticket.prioridad);
 
   const [delante, porEstado, historico] = await Promise.all([
@@ -89,14 +96,14 @@ export async function calcularEstadoCola(ticket: {
   // Los minutos estimados son de TRABAJO, no de reloj: el acta cuenta los
   // tiempos solo dentro de la jornada. Proyectarlos sobre el horario da la
   // fecha real en que le tocara el turno a este ticket.
-  const fechaEstimada = sumarMinutosHabiles(ticket.fechaCreacion, estimadoMinutos);
+  const fechaEstimada = sumarMinutosHabiles(desde, estimadoMinutos);
 
   return {
     posicion: delante + 1,
     enCola,
     enAtencion,
     estimadoMinutos,
-    estimadoTexto: describirEstimado(ticket.fechaCreacion, fechaEstimada, estimadoMinutos),
-    dentroDeHorario: estaEnHorario(ticket.fechaCreacion),
+    estimadoTexto: describirEstimado(desde, fechaEstimada, estimadoMinutos),
+    dentroDeHorario: estaEnHorario(desde),
   };
 }

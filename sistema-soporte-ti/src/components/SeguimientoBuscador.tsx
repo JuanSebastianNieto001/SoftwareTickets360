@@ -6,6 +6,8 @@
 import { useState, FormEvent, useEffect } from "react";
 import EstadoBadge from "@/components/EstadoBadge";
 import PrioridadBadge from "@/components/PrioridadBadge";
+import EstadoColaPanel from "@/components/EstadoColaPanel";
+import type { EstadoCola } from "@/lib/cola";
 import { formatearFechaHora, formatearMinutos } from "@/lib/ticket";
 
 type Ticket = {
@@ -30,6 +32,7 @@ const formatearFecha = (fecha: string | null) =>
 export default function SeguimientoBuscador({ codigoInicial }: { codigoInicial?: string }) {
   const [codigo, setCodigo] = useState(codigoInicial ?? "");
   const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [cola, setCola] = useState<EstadoCola | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
@@ -38,6 +41,7 @@ export default function SeguimientoBuscador({ codigoInicial }: { codigoInicial?:
     setCargando(true);
     setError(null);
     setTicket(null);
+    setCola(null);
     try {
       const res = await fetch(`/api/tickets/consulta?codigo=${encodeURIComponent(codigoBuscado.trim())}`);
       const data = await res.json();
@@ -46,6 +50,7 @@ export default function SeguimientoBuscador({ codigoInicial }: { codigoInicial?:
         return;
       }
       setTicket(data.ticket);
+      setCola(data.cola ?? null);
     } catch {
       setError("No se pudo conectar con el servidor.");
     } finally {
@@ -100,6 +105,9 @@ export default function SeguimientoBuscador({ codigoInicial }: { codigoInicial?:
               <dd className="mt-0.5"><PrioridadBadge prioridad={ticket.prioridad} /></dd>
             </div>
           </dl>
+
+          {/* Solo llega para los pendientes: en proceso o cerrado ya no hay cola. */}
+          {cola && <EstadoColaPanel cola={cola} prioridad={ticket.prioridad} momento="consulta" />}
 
           <ol className="space-y-3 border-l-2 border-slate-200 pl-4">
             <li>
