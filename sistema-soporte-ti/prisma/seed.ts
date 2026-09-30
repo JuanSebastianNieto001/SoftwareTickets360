@@ -51,10 +51,10 @@ async function sembrarCuenta(opciones: {
 
   const usuario = await prisma.user.upsert({
     where: { correo },
-    // El nombre no se pisa si la cuenta ya existe: puede haberlo cambiado su
-    // dueno desde el panel. La contrasena y el rol si se reafirman, que es
-    // para lo que se vuelve a correr el seed.
-    update: { passwordHash, rol: opciones.rol },
+    // El nombre tambien se reafirma. Es deliberado: la cuenta puede haber
+    // sido renombrada desde el panel por quien la venia usando, y el seed
+    // es justamente donde se declara a quien pertenece cada una.
+    update: { nombre: opciones.nombre, passwordHash, rol: opciones.rol },
     create: { nombre: opciones.nombre, correo, passwordHash, rol: opciones.rol },
   });
 
