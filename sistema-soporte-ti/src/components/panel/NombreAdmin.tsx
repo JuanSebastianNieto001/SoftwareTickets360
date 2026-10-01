@@ -15,8 +15,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { IconPencil } from "@/components/ui/icons";
 import { actualizarNombreAdminSchema } from "@/lib/validation";
+import { useApiPanel } from "@/lib/useApiPanel";
 
 export default function NombreAdmin({ nombreInicial }: { nombreInicial: string }) {
+  // Llamadas a la API con la cabecera del panel (cada panel tiene su sesion).
+  const api = useApiPanel();
   const router = useRouter();
   const [nombre, setNombre] = useState(nombreInicial);
   const [editando, setEditando] = useState(false);
@@ -53,7 +56,7 @@ export default function NombreAdmin({ nombreInicial }: { nombreInicial: string }
     setGuardando(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/perfil", {
+      const res = await api("/api/admin/perfil", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(resultado.data),

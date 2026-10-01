@@ -3,6 +3,7 @@
 // mensaje de error cambiado aqui se refleja en toda la app.
 import { z } from "zod";
 import { AREA_ASESOR, AREAS, CATEGORIAS, PRIORIDADES, TEAM_LEADERS } from "@/lib/ticket";
+import { PANELES } from "@/lib/panel";
 
 const crearTicketBase = z.object({
   nombreSolicitante: z.string().trim().min(3, "Escribe tu nombre completo").max(120),
@@ -143,4 +144,7 @@ export const loginSchema = z.object({
   // (ej. "admin"), es solo el identificador del admin en la tabla User.
   correo: z.string().trim().min(1, "El usuario es obligatorio").max(150),
   password: z.string().min(1, "La contrasena es obligatoria"),
+  // Login por el que se entro. Decide en que cookie queda la sesion (cada
+  // panel tiene la suya). Si no llega, se asume soporte, el de menos permisos.
+  panel: z.enum(PANELES).default("soporte"),
 });

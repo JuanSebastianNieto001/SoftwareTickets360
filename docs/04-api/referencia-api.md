@@ -7,8 +7,12 @@ peticiones y respuestas usan JSON, salvo la exportación a Excel.
 
 ## Autenticación y permisos
 
-- Las rutas `/api/admin/*` exigen la cookie de sesión `soporte_ti_session`, que se
-  obtiene con `POST /api/auth/login`. Sin cookie válida responden **401**.
+- Las rutas `/api/admin/*` exigen una cookie de sesión, que se obtiene con
+  `POST /api/auth/login`. Cada panel tiene la suya (`soporte_ti_sesion_admin`,
+  `soporte_ti_sesion_soporte`). Sin cookie válida responden **401**.
+- Cabecera `x-panel: admin | soporte`: indica con qué sesión actuar cuando el
+  navegador tiene las dos. Sin ella se usa la de soporte. La descarga del Excel
+  acepta `?panel=` en su lugar.
 - Algunas rutas son exclusivas del **líder de TI** (rol `ADMIN`); el rol se lee del
   JWT firmado, no de la petición. Un usuario de soporte recibe **403**.
 - Los errores tienen la forma `{ "error": "mensaje legible" }`.
@@ -121,16 +125,19 @@ peticiones y respuestas usan JSON, salvo la exportación a Excel.
 ### `POST /api/auth/login`
 
 ```json
-{ "correo": "admin", "password": "••••••••" }
+{ "correo": "admin", "password": "••••••••", "panel": "admin" }
 ```
 
-**200** y cookie `soporte_ti_session` (httpOnly, 8 h). Usuario inexistente y
+**200** con `{ ok, nombre, rol, panel }` y la cookie del panel (httpOnly, 8 h).
+`panel` es el login por el que se entró (por defecto `soporte`); una cuenta de
+soporte que entra por el panel del líder queda en el de soporte. Usuario inexistente y
 contraseña incorrecta devuelven el **mismo** 401, para no revelar qué cuentas
 existen. Cada inicio de sesión se registra en la bitácora.
 
 ### `POST /api/auth/logout`
 
-Borra la cookie. No requiere cuerpo.
+Borra solo la cookie del panel indicado en `x-panel`; la del otro panel sigue
+activa. Sin cabecera, borra las dos.
 
 ## Rutas privadas — tickets
 

@@ -3,15 +3,18 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { IconLogout } from "@/components/ui/icons";
+import { useApiPanel } from "@/lib/useApiPanel";
 
 export default function BotonCerrarSesion() {
+  // Llamadas a la API con la cabecera del panel (cada panel tiene su sesion).
+  const api = useApiPanel();
   const router = useRouter();
   const pathname = usePathname();
   const [cargando, setCargando] = useState(false);
 
   async function cerrarSesion() {
     setCargando(true);
-    await fetch("/api/auth/logout", { method: "POST" });
+    await api("/api/auth/logout", { method: "POST" });
     // Cada panel vuelve a su propio login: el boton lo comparten /admin y
     // /soporte, asi que el destino sale de donde estaba el usuario.
     router.push(pathname.startsWith("/soporte") ? "/soporte/login" : "/admin/login");

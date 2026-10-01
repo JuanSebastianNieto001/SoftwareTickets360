@@ -5,7 +5,7 @@
 | Control | Implementación |
 |---|---|
 | Contraseñas | Hash **bcrypt** (costo 10). Nunca se guardan ni se devuelven en texto plano. |
-| Sesión | **JWT HS256** firmado con `AUTH_SECRET`, en cookie `soporte_ti_session`. |
+| Sesión | **JWT HS256** firmado con `AUTH_SECRET`. Una cookie por panel: `soporte_ti_sesion_admin` y `soporte_ti_sesion_soporte`, para poder tener ambos paneles abiertos a la vez en el mismo navegador sin que uno cierre el otro. |
 | Cookie | `httpOnly` (inaccesible desde JavaScript), `secure` en producción, `sameSite=lax`. |
 | Expiración | 8 horas. Después hay que volver a iniciar sesión. |
 | Mensajes de error | Usuario inexistente y contraseña incorrecta devuelven el mismo mensaje. |
@@ -34,6 +34,13 @@ La verificación ocurre en dos capas:
    devuelto a `/soporte`.
 2. **Cada ruta de la API** — las acciones exclusivas del administrador vuelven a
    comprobar el rol y responden 403.
+
+Como las rutas `/api/admin/*` las usan los dos paneles, el navegador indica
+desde cuál llama con la cabecera `x-panel` (o `?panel=` en la descarga del
+Excel). La cabecera no otorga permisos: solo elige entre sesiones que el
+navegador ya tiene, y cada una se valida igual. Si falta, se usa la sesión de
+soporte (la de menos permisos), de modo que una llamada sin cabecera nunca
+actúa como administrador.
 
 No existe forma de crear un administrador desde la interfaz: solo con el seed, en
 el servidor. Así nadie puede escalar privilegios desde el panel.

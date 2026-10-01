@@ -30,6 +30,7 @@ import {
   formatearFechaHora,
   formatearMinutos,
 } from "@/lib/ticket";
+import { useApiPanel, usePanel } from "@/lib/useApiPanel";
 
 const INTERVALO_ACTUALIZACION_MS = 20000;
 // Espera antes de buscar mientras se escribe, para no lanzar una consulta a
@@ -94,6 +95,10 @@ const FILTROS = [
  * ruta de borrado, contra el rol firmado en el JWT.
  */
 export default function AdminDashboard({ puedeEliminar = false }: { puedeEliminar?: boolean }) {
+  // Llamadas a la API con la cabecera del panel (cada panel tiene su sesion).
+  const api = useApiPanel();
+  // El Excel se baja con un enlace (no con fetch), asi que el panel va en la URL.
+  const panelActual = usePanel();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [contadores, setContadores] = useState<Contadores>(CONTADORES_VACIOS);
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]["valor"]>("ACTIVOS");
@@ -142,7 +147,7 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
     if (busquedaAplicada) params.set("q", busquedaAplicada);
     if (teamLeader) params.set("teamLeader", teamLeader);
     try {
-      const res = await fetch(`/api/admin/tickets?${params.toString()}`, { cache: "no-store" });
+      const res = await api(`/api/admin/tickets?${params.toString()}`, { cache: "no-store" });
       if (!res.ok) throw new Error();
       const data = await res.json();
       setTickets(data.tickets);
@@ -155,7 +160,7 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
       setCargando(false);
       primeraCargaHecha.current = true;
     }
-  }, [filtro, busquedaAplicada, teamLeader]);
+  }, [api, filtro, busquedaAplicada, teamLeader]);
 
   // Retarda lo que se escribe en el buscador antes de consultar.
   useEffect(() => {
@@ -254,7 +259,7 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
   async function iniciarTicket(id: string) {
     setProcesando(id);
     try {
-      const res = await fetch(`/api/admin/tickets/${id}/iniciar`, { method: "POST" });
+      const res = await api(`/api/admin/tickets/${id}/iniciar`, { method: "POST" });
       if (!res.ok) throw new Error();
       await cargar();
     } catch {
@@ -282,7 +287,7 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
 
     setProcesando(t.id);
     try {
-      const res = await fetch(`/api/admin/tickets/${t.id}/cerrar`, {
+      const res = await api(`/api/admin/tickets/${t.id}/cerrar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -320,7 +325,7 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
   async function cambiarPrioridad(id: string, prioridad: string) {
     setProcesando(id);
     try {
-      const res = await fetch(`/api/admin/tickets/${id}/prioridad`, {
+      const res = await api(`/api/admin/tickets/${id}/prioridad`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prioridad }),
@@ -351,7 +356,7 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
     if (detalles[id]) return;
 
     try {
-      const res = await fetch(`/api/admin/tickets/${id}`, { cache: "no-store" });
+      const res = await api(`/api/admin/tickets/${id}`, { cache: "no-store" });
       if (!res.ok) throw new Error();
       const data = await res.json();
       setDetalles((previos) => ({
@@ -379,7 +384,7 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
 
     setProcesando(id);
     try {
-      const res = await fetch(`/api/admin/tickets/${id}`, { method: "DELETE" });
+      const res = await api(`/api/admin/tickets/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
       // Si estaba marcado para conservar, la marca ya no tiene a que apuntar
       // y descuadraria el conteo del boton de borrado masivo.
@@ -427,7 +432,7 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
 
     setProcesando("__vaciar__");
     try {
-      const res = await fetch(`/api/admin/tickets?confirmacion=ELIMINAR`, {
+      const res = await api(`/api/admin/tickets?confirmacion=ELIMINAR`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conservar: Array.from(conservar) }),
@@ -536,7 +541,7 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
         </select>
         {/* Descarga los finalizados con su solucion (todos los que haya en la
             base, sin filtro de fecha: a veces se vacia cada 2 o 3 dias). */}
-        <a href="/api/admin/export/excel" className="btn-secondary ml-auto">
+        <a href={`/api/admin/export/excel?panel=${panelActual}`} className="btn-secondary ml-auto">
           Exportar finalizados
         </a>
         {puedeEliminar && (

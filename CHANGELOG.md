@@ -3,6 +3,14 @@
 Registro de los cambios del sistema, construido a partir del historial de
 versiones del repositorio (`git log`). Las fechas corresponden a los commits.
 
+## [1.2.0] — 2026-10-01
+
+### Corregido
+- Se pueden tener abiertos a la vez el panel del líder y el de soporte en el
+  mismo navegador: cada panel tiene su propia cookie de sesión, e iniciar o
+  cerrar sesión en uno ya no afecta al otro. Tras el despliegue hay que volver
+  a iniciar sesión una vez.
+
 ## [1.1.0] — 2026-10-01
 
 ### Agregado

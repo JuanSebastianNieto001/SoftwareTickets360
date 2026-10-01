@@ -12,7 +12,7 @@ import NombreAdmin from "@/components/panel/NombreAdmin";
 import SiteHeader from "@/components/layout/SiteHeader";
 
 export default async function SoportePage() {
-  const sesion = await obtenerSesionActual();
+  const sesion = await obtenerSesionActual("soporte");
 
   return (
     <div className="min-h-screen bg-slate-50">

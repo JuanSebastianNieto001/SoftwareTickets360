@@ -13,8 +13,7 @@
 // o el payload en auth.ts, replica el cambio aqui tambien.
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
-
-const COOKIE_NAME = "soporte_ti_session";
+import { CABECERA_PANEL, aPanel, cookieDePanel, type Panel } from "@/lib/panel";
 
 type Sesion = { rol?: string };
 
@@ -43,7 +42,21 @@ export async function middleware(request: NextRequest) {
 
   if (!esPanelAdmin && !esPanelSoporte && !esApi) return NextResponse.next();
 
-  const sesion = await leerSesion(request.cookies.get(COOKIE_NAME)?.value);
+  // Cada panel tiene su propia cookie (ver src/lib/panel.ts), asi una
+  // pestana de /admin y otra de /soporte no se pisan entre si.
+  const leer = (panel: Panel) => leerSesion(request.cookies.get(cookieDePanel(panel))?.value);
+
+  let sesion: Sesion | null;
+  if (esApi) {
+    // La API la usan los dos paneles: el navegador dice desde cual llama
+    // (cabecera, o ?panel= en enlaces de descarga como el Excel). Sin
+    // indicacion basta cualquiera de las dos sesiones; cual se usa para
+    // actuar lo decide obtenerSesionActual, que prefiere la de soporte.
+    const panel = aPanel(request.headers.get(CABECERA_PANEL) ?? request.nextUrl.searchParams.get("panel"));
+    sesion = panel ? await leer(panel) : ((await leer("soporte")) ?? (await leer("admin")));
+  } else {
+    sesion = await leer(esPanelAdmin ? "admin" : "soporte");
+  }
 
   if (!sesion) {
     if (esApi) return NextResponse.json({ error: "No autenticado" }, { status: 401 });

@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ETIQUETA_ACCION, type Accion } from "@/lib/registro";
 import { formatearFechaHora } from "@/lib/ticket";
+import { useApiPanel } from "@/lib/useApiPanel";
 
 type Registro = {
   id: string;
@@ -28,6 +29,8 @@ const ACCIONES_SENSIBLES = new Set([
 ]);
 
 export default function RegistroActividad() {
+  // Llamadas a la API con la cabecera del panel (cada panel tiene su sesion).
+  const api = useApiPanel();
   const [registros, setRegistros] = useState<Registro[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
@@ -39,7 +42,7 @@ export default function RegistroActividad() {
     try {
       const params = new URLSearchParams({ limite: "200" });
       if (filtroUsuario) params.set("usuarioId", filtroUsuario);
-      const res = await fetch(`/api/admin/registro?${params}`);
+      const res = await api(`/api/admin/registro?${params}`);
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "No se pudo cargar la bitacora");
@@ -52,7 +55,7 @@ export default function RegistroActividad() {
     } finally {
       setCargando(false);
     }
-  }, [filtroUsuario]);
+  }, [api, filtroUsuario]);
 
   useEffect(() => {
     cargar();

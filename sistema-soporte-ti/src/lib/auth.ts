@@ -10,10 +10,10 @@
 // modulo directamente por las limitaciones del Edge Runtime), asi que si
 // cambias el algoritmo o el payload aqui, replica el cambio alli tambien.
 import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import bcrypt from "bcryptjs";
+import { CABECERA_PANEL, COOKIE_LEGADA, aPanel, cookieDePanel, type Panel } from "@/lib/panel";
 
-const COOKIE_NAME = "soporte_ti_session";
 const DURACION_SESION = "8h";
 
 // AUTH_SECRET firma y verifica el JWT de sesion. Debe ser el mismo valor en
@@ -76,9 +76,13 @@ export async function verificarSesion(token: string): Promise<SesionPayload | nu
   }
 }
 
-export async function establecerCookieSesion(token: string) {
+/** Guarda la sesion en la cookie del panel indicado, sin tocar la del otro. */
+export async function establecerCookieSesion(token: string, panel: Panel) {
   const store = await cookies();
-  store.set(COOKIE_NAME, token, {
+  // La cookie unica de la version anterior ya no se lee; se limpia para que
+  // no quede un token huerfano en el navegador.
+  store.delete(COOKIE_LEGADA);
+  store.set(cookieDePanel(panel), token, {
     httpOnly: true, // inaccesible desde JS del navegador: mitiga robo de token via XSS
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -87,17 +91,37 @@ export async function establecerCookieSesion(token: string) {
   });
 }
 
-export async function eliminarCookieSesion() {
+/** Cierra la sesion de un solo panel: la pestana del otro sigue abierta. */
+export async function eliminarCookieSesion(panel: Panel) {
   const store = await cookies();
-  store.delete(COOKIE_NAME);
+  store.delete(cookieDePanel(panel));
 }
 
-/** Lee y valida la cookie de sesion de la request actual (Server Component / Route Handler). */
-export async function obtenerSesionActual(): Promise<SesionPayload | null> {
-  const store = await cookies();
-  const token = store.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  return verificarSesion(token);
+/** Panel desde el que llama el navegador (cabecera x-panel), o null si no la mando. */
+export async function panelDeLaPeticion(): Promise<Panel | null> {
+  const store = await headers();
+  return aPanel(store.get(CABECERA_PANEL));
 }
 
-export { COOKIE_NAME };
+async function leerCookie(panel: Panel): Promise<SesionPayload | null> {
+  const store = await cookies();
+  const token = store.get(cookieDePanel(panel))?.value;
+  return token ? verificarSesion(token) : null;
+}
+
+/**
+ * Lee y valida la sesion de la request actual (Server Component / Route Handler).
+ *
+ * Las paginas pasan su panel explicito. Las rutas de la API lo toman de la
+ * cabecera x-panel que agrega el navegador (ver useApiPanel).
+ *
+ * Si no se sabe el panel, se prueba primero la sesion de SOPORTE: es la de
+ * menos permisos, asi que una llamada sin cabecera nunca termina actuando
+ * como administrador por accidente. Solo si no hay sesion de soporte se usa
+ * la de admin.
+ */
+export async function obtenerSesionActual(panel?: Panel): Promise<SesionPayload | null> {
+  const elegido = panel ?? (await panelDeLaPeticion());
+  if (elegido) return leerCookie(elegido);
+  return (await leerCookie("soporte")) ?? (await leerCookie("admin"));
+}

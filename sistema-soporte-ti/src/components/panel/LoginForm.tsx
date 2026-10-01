@@ -3,20 +3,19 @@
 // Formulario de login, compartido por los dos paneles: /admin/login (lider
 // de TI) y /soporte/login (quien atiende).
 //
-// Al iniciar sesion redirige a `next` si el usuario venia de un intento de
-// entrar a una ruta protegida sin sesion (ver el `?next=` que agrega
-// middleware.ts). Si no, manda a cada quien a su panel segun el rol que
-// devuelve el servidor, no segun la pagina por la que entro: asi el lider
-// que use /soporte/login igual termina en /admin.
+// La sesion queda en el panel por el que se entro (cada panel tiene su
+// cookie, ver src/lib/panel.ts), asi se puede tener /admin y /soporte
+// abiertos a la vez en el mismo navegador. La unica excepcion: una cuenta de
+// soporte que entra por /admin/login termina en /soporte, porque al panel del
+// lider no tiene acceso. El servidor devuelve el panel final.
+//
+// Si el usuario venia de un intento de entrar a una ruta protegida sin
+// sesion (el `?next=` que agrega middleware.ts), vuelve ahi.
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { IconUser, IconLock } from "@/components/ui/icons";
+import { usePanel } from "@/lib/useApiPanel";
 
-/** Panel que le corresponde a cada rol. */
-const PANEL_POR_ROL: Record<string, string> = {
-  ADMIN: "/admin",
-  SOPORTE: "/soporte",
-};
 
 export default function LoginForm({
   next,
@@ -26,6 +25,7 @@ export default function LoginForm({
   destinoPorDefecto?: string;
 }) {
   const router = useRouter();
+  const panelDeEntrada = usePanel();
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
   const [verPassword, setVerPassword] = useState(false);
@@ -39,6 +39,7 @@ export default function LoginForm({
     const payload = {
       correo: String(form.get("correo") ?? ""),
       password: String(form.get("password") ?? ""),
+      panel: panelDeEntrada,
     };
 
     try {
@@ -53,9 +54,9 @@ export default function LoginForm({
         setCargando(false);
         return;
       }
-      const panel = PANEL_POR_ROL[data.rol] ?? destinoPorDefecto;
-      // `next` solo se respeta si apunta al panel que le corresponde a este
-      // rol: evita mandar a un soporte a /admin, donde el middleware lo
+      const panel = data.panel ? `/${data.panel}` : destinoPorDefecto;
+      // `next` solo se respeta si apunta al panel donde quedo la sesion:
+      // evita mandar a un soporte a /admin, donde el middleware lo
       // devolveria de inmediato.
       const destino = next && next.startsWith(panel) ? next : panel;
       router.push(destino);

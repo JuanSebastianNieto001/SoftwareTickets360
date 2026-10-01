@@ -14,7 +14,7 @@ import RegistroActividad from "@/components/panel/RegistroActividad";
 import SiteHeader from "@/components/layout/SiteHeader";
 
 export default async function AdminPage() {
-  const sesion = await obtenerSesionActual();
+  const sesion = await obtenerSesionActual("admin");
 
   return (
     <div className="min-h-screen bg-slate-50">

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { crearSesion, establecerCookieSesion, obtenerSesionActual } from "@/lib/auth";
+import { crearSesion, establecerCookieSesion, obtenerSesionActual, panelDeLaPeticion } from "@/lib/auth";
 import { ACCIONES, registrar } from "@/lib/registro";
 import { actualizarNombreAdminSchema } from "@/lib/validation";
 
@@ -61,7 +61,12 @@ export async function PATCH(request: NextRequest) {
     nombre: usuario.nombre,
     rol: usuario.rol === "ADMIN" ? "ADMIN" : "SOPORTE",
   });
-  await establecerCookieSesion(token);
+  // Se renueva solo la cookie del panel desde el que se hizo el cambio. Sin
+  // cabecera de panel no se sabe cual era, y escribir en la equivocada
+  // abriria una sesion donde no la habia: en ese caso el nombre nuevo llega
+  // al token en el proximo inicio de sesion.
+  const panel = await panelDeLaPeticion();
+  if (panel) await establecerCookieSesion(token, panel);
 
   await registrar(sesion, ACCIONES.NOMBRE_CAMBIADO, `Cambio su nombre a "${usuario.nombre}"`);
 

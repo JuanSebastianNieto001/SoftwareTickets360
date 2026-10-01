@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState, FormEvent } from "react";
 import { formatearFechaHora } from "@/lib/ticket";
 import { MIN_CARACTERES_PASSWORD } from "@/lib/validation";
+import { useApiPanel } from "@/lib/useApiPanel";
 
 type Usuario = {
   id: string;
@@ -22,6 +23,8 @@ type Usuario = {
 };
 
 export default function PanelUsuarios() {
+  // Llamadas a la API con la cabecera del panel (cada panel tiene su sesion).
+  const api = useApiPanel();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
@@ -34,7 +37,7 @@ export default function PanelUsuarios() {
 
   const cargar = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/usuarios");
+      const res = await api("/api/admin/usuarios");
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "No se pudieron cargar las cuentas");
@@ -47,7 +50,7 @@ export default function PanelUsuarios() {
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [api]);
 
   useEffect(() => {
     cargar();
@@ -61,7 +64,7 @@ export default function PanelUsuarios() {
     setAviso("");
 
     try {
-      const res = await fetch("/api/admin/usuarios", {
+      const res = await api("/api/admin/usuarios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -92,7 +95,7 @@ export default function PanelUsuarios() {
     setAviso("");
 
     try {
-      const res = await fetch(`/api/admin/usuarios/${usuario.id}/password`, {
+      const res = await api(`/api/admin/usuarios/${usuario.id}/password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: passwordNueva }),
