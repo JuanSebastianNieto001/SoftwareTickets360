@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { IconLogout } from "@/components/icons";
+import { IconLogout } from "@/components/ui/icons";
 
 export default function BotonCerrarSesion() {
   const router = useRouter();

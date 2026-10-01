@@ -6,12 +6,12 @@
 // ruta bajo /admin: un soporte con sesion valida que entre por esta URL
 // termina en /soporte, no en un error.
 import { obtenerSesionActual } from "@/lib/auth";
-import AdminDashboard from "@/components/AdminDashboard";
-import BotonCerrarSesion from "@/components/BotonCerrarSesion";
-import NombreAdmin from "@/components/NombreAdmin";
-import PanelUsuarios from "@/components/PanelUsuarios";
-import RegistroActividad from "@/components/RegistroActividad";
-import SiteHeader from "@/components/SiteHeader";
+import AdminDashboard from "@/components/panel/AdminDashboard";
+import BotonCerrarSesion from "@/components/panel/BotonCerrarSesion";
+import NombreAdmin from "@/components/panel/NombreAdmin";
+import PanelUsuarios from "@/components/panel/PanelUsuarios";
+import RegistroActividad from "@/components/panel/RegistroActividad";
+import SiteHeader from "@/components/layout/SiteHeader";
 
 export default async function AdminPage() {
   const sesion = await obtenerSesionActual();

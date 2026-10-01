@@ -1,7 +1,7 @@
 // Barra superior con el logo. Solo se usa en el panel de admin: las
 // pantallas publicas (formulario, seguimiento, login) usan HeroLogo en su
 // lugar para un tratamiento mas grande y centrado.
-import VozLogo from "@/components/VozLogo";
+import VozLogo from "@/components/layout/VozLogo";
 
 export default function SiteHeader({ right }: { right?: React.ReactNode }) {
   return (

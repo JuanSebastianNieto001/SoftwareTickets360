@@ -1,5 +1,5 @@
-import SeguimientoBuscador from "@/components/SeguimientoBuscador";
-import HeroLogo from "@/components/HeroLogo";
+import SeguimientoBuscador from "@/components/publico/SeguimientoBuscador";
+import HeroLogo from "@/components/layout/HeroLogo";
 
 export default function SeguimientoPage({
   searchParams,

@@ -23,9 +23,9 @@ import {
 } from "@/lib/ticket";
 import type { EstadoCola } from "@/lib/cola";
 import { crearTicketSchema } from "@/lib/validation";
-import PrioridadBadge from "@/components/PrioridadBadge";
-import EstadoColaPanel from "@/components/EstadoColaPanel";
-import { IconUser, IconPuesto, IconPin, IconTag, IconPeople, IconMessage, IconSend } from "@/components/icons";
+import PrioridadBadge from "@/components/ui/PrioridadBadge";
+import EstadoColaPanel from "@/components/publico/EstadoColaPanel";
+import { IconUser, IconPuesto, IconPin, IconTag, IconPeople, IconMessage, IconSend } from "@/components/ui/icons";
 
 type Estado =
   | { paso: "formulario" }

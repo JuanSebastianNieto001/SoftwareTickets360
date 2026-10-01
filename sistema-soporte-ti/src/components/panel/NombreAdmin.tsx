@@ -13,7 +13,7 @@
 // para que el resto de la pantalla vea el valor nuevo.
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { IconPencil } from "@/components/icons";
+import { IconPencil } from "@/components/ui/icons";
 import { actualizarNombreAdminSchema } from "@/lib/validation";
 
 export default function NombreAdmin({ nombreInicial }: { nombreInicial: string }) {

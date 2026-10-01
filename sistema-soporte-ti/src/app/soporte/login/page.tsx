@@ -2,8 +2,8 @@
 // el usuario intentaba abrir antes de que middleware.ts lo redirigiera aqui
 // (viene como /soporte/login?next=/soporte/algo); se la pasamos a LoginForm
 // para volver ahi despues de autenticarse.
-import LoginForm from "@/components/LoginForm";
-import HeroLogo from "@/components/HeroLogo";
+import LoginForm from "@/components/panel/LoginForm";
+import HeroLogo from "@/components/layout/HeroLogo";
 
 export default function SoporteLoginPage({
   searchParams,

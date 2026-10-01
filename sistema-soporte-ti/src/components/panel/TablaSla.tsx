@@ -8,7 +8,7 @@
 // Arranca plegada porque es material de consulta, no algo que se mire todos
 // los dias: el panel es para trabajar los tickets.
 import { useState } from "react";
-import PrioridadBadge from "@/components/PrioridadBadge";
+import PrioridadBadge from "@/components/ui/PrioridadBadge";
 import { PRIORIDADES, SLA_POR_PRIORIDAD } from "@/lib/ticket";
 
 // De mayor a menor urgencia, al reves de PRIORIDADES (que esta ordenada de

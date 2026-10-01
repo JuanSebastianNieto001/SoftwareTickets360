@@ -10,7 +10,7 @@
 // que use /soporte/login igual termina en /admin.
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { IconUser, IconLock } from "@/components/icons";
+import { IconUser, IconLock } from "@/components/ui/icons";
 
 /** Panel que le corresponde a cada rol. */
 const PANEL_POR_ROL: Record<string, string> = {

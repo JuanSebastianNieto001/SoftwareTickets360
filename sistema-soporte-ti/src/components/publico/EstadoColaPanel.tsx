@@ -9,7 +9,7 @@
 import type { EstadoCola } from "@/lib/cola";
 import { slaParaPrioridad } from "@/lib/ticket";
 import { HORARIO_TEXTO } from "@/lib/horario";
-import PrioridadBadge from "@/components/PrioridadBadge";
+import PrioridadBadge from "@/components/ui/PrioridadBadge";
 
 export default function EstadoColaPanel({
   cola,

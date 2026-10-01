@@ -6,10 +6,10 @@
 // para mostrar el nombre en el saludo, por eso `sesion?.nombre` usa un
 // respaldo en vez de asumir que sesion nunca sera null.
 import { esAdmin, obtenerSesionActual } from "@/lib/auth";
-import AdminDashboard from "@/components/AdminDashboard";
-import BotonCerrarSesion from "@/components/BotonCerrarSesion";
-import NombreAdmin from "@/components/NombreAdmin";
-import SiteHeader from "@/components/SiteHeader";
+import AdminDashboard from "@/components/panel/AdminDashboard";
+import BotonCerrarSesion from "@/components/panel/BotonCerrarSesion";
+import NombreAdmin from "@/components/panel/NombreAdmin";
+import SiteHeader from "@/components/layout/SiteHeader";
 
 export default async function SoportePage() {
   const sesion = await obtenerSesionActual();

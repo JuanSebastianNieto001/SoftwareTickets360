@@ -1,6 +1,6 @@
-import TicketForm from "@/components/TicketForm";
-import HeroLogo from "@/components/HeroLogo";
-import { IconHeart, IconPin, IconCube } from "@/components/icons";
+import TicketForm from "@/components/publico/TicketForm";
+import HeroLogo from "@/components/layout/HeroLogo";
+import { IconHeart, IconPin, IconCube } from "@/components/ui/icons";
 
 export default function InicioPage() {
   return (

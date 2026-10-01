@@ -15,11 +15,11 @@
 //   - no se consulta si la pestana no esta visible;
 //   - en Finalizados no se consulta en bucle: es historial, no cambia solo.
 import { useCallback, useEffect, useRef, useState } from "react";
-import EstadoBadge from "@/components/EstadoBadge";
-import PrioridadBadge from "@/components/PrioridadBadge";
-import SlaBadge from "@/components/SlaBadge";
-import TablaSla from "@/components/TablaSla";
-import { IconTrash } from "@/components/icons";
+import EstadoBadge from "@/components/ui/EstadoBadge";
+import PrioridadBadge from "@/components/ui/PrioridadBadge";
+import SlaBadge from "@/components/ui/SlaBadge";
+import TablaSla from "@/components/panel/TablaSla";
+import { IconTrash } from "@/components/ui/icons";
 import {
   ETIQUETA_PRIORIDAD,
   MIN_CARACTERES_JUSTIFICACION,

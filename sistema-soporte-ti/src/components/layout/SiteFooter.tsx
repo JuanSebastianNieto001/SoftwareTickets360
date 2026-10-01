@@ -1,4 +1,4 @@
-import { IconPeople, IconSend, IconHandHeart, IconHeart } from "@/components/icons";
+import { IconPeople, IconSend, IconHandHeart, IconHeart } from "@/components/ui/icons";
 
 const ITEMS = [
   { icon: IconPeople, label: "Informacion que conecta" },

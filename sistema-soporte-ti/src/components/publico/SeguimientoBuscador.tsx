@@ -4,9 +4,9 @@
 // codigo del ticket (TCK-000123) puede consultar su estado sin login; no
 // expone datos de otros tickets porque la API busca por codigo exacto.
 import { useState, FormEvent, useEffect } from "react";
-import EstadoBadge from "@/components/EstadoBadge";
-import PrioridadBadge from "@/components/PrioridadBadge";
-import EstadoColaPanel from "@/components/EstadoColaPanel";
+import EstadoBadge from "@/components/ui/EstadoBadge";
+import PrioridadBadge from "@/components/ui/PrioridadBadge";
+import EstadoColaPanel from "@/components/publico/EstadoColaPanel";
 import type { EstadoCola } from "@/lib/cola";
 import { formatearFechaHora, formatearMinutos } from "@/lib/ticket";
 
