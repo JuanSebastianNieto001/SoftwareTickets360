@@ -95,9 +95,16 @@ el único que decide si se cumplió el SLA.
 ## 7. Funciones del líder de TI
 
 ### Borrar tickets
-- **Borrar finalizados (N):** elimina todos los cerrados. Pide escribir
+- **Borrar finalizados (N):** elimina los cerrados. Pide escribir
   `ELIMINAR`. Los abiertos no se tocan. **Exporte antes a Excel**: lo borrado no
   se recupera.
+- **Conservar algunos:** en la pestaña **Finalizados**, marque la casilla
+  **Conservar** en los tickets que no deben borrarse. El botón rojo muestra
+  cuántos se borrarán y cuántos se conservan, por ejemplo *Borrar finalizados
+  (79 · conserva 3)*. El atajo **Conservar los cerrados este mes** marca de una
+  vez los cerrados en el mes en curso: sirve para vaciar el mes anterior el día
+  1 sin perder los de hoy. **Quitar marcas** las limpia. Después de un borrado
+  las marcas se quitan solas.
 - **Eliminar ticket** (ícono de papelera): borra un ticket puntual, en cualquier
   estado. Úselo para pruebas o duplicados.
 

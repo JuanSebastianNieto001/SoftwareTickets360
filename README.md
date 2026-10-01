@@ -11,7 +11,7 @@ nivel de servicio (SLA).
 | **Plan de trabajo** | Septiembre 2026 · Frente 1 (PDA 1, PDA 2 y PDA 3) |
 | **Producción** | https://software-ticketsv0z360.vercel.app |
 | **Repositorio** | https://github.com/JuanSebastianNieto001/SoftwareTickets360 |
-| **Versión** | 1.0.0 (ver [CHANGELOG.md](CHANGELOG.md)) |
+| **Versión** | 1.1.0 (ver [CHANGELOG.md](CHANGELOG.md)) |
 
 ## Qué resuelve
 

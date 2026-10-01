@@ -126,6 +126,18 @@ export const restablecerPasswordSchema = z.object({
   password: passwordSegura,
 });
 
+/**
+ * Borrado masivo de finalizados con excepciones: los ids que el lider de TI
+ * marco para conservar. El tope evita una peticion desmedida; supera de
+ * sobra lo que se acumula entre dos vaciados.
+ */
+export const borrarFinalizadosSchema = z.object({
+  conservar: z
+    .array(z.string().min(1).max(50), { invalid_type_error: "conservar debe ser una lista de ids" })
+    .max(1000, "Demasiados tickets marcados para conservar")
+    .default([]),
+});
+
 export const loginSchema = z.object({
   // Texto libre, no .email(): el usuario de login no tiene que ser un correo
   // (ej. "admin"), es solo el identificador del admin en la tabla User.

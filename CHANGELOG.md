@@ -3,6 +3,13 @@
 Registro de los cambios del sistema, construido a partir del historial de
 versiones del repositorio (`git log`). Las fechas corresponden a los commits.
 
+## [1.1.0] — 2026-10-01
+
+### Agregado
+- Borrado masivo con excepciones: casilla **Conservar** en cada finalizado y
+  atajo **Conservar los cerrados este mes**, para vaciar el mes anterior sin
+  perder los tickets del mes en curso.
+
 ## [1.0.0] — 2026-10-01
 
 Versión de entrega del Frente 1 del plan de trabajo de septiembre.

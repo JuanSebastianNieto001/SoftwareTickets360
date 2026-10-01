@@ -155,6 +155,15 @@ Borra la cookie. No requiere cuerpo.
 
 Borra **solo los tickets finalizados**. Exige el parámetro de confirmación exacto.
 
+Cuerpo opcional para conservar algunos:
+
+```json
+{ "conservar": ["id-del-ticket-1", "id-del-ticket-2"] }
+```
+
+Los finalizados de la lista no se borran (máximo 1000 ids). Sin cuerpo se borran
+todos. Responde `{ eliminados, mensaje }`.
+
 ### `GET /api/admin/tickets/:id`
 
 Detalle completo del ticket, incluida la solución y la justificación del SLA.

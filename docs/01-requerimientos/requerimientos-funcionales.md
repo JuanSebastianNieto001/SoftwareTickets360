@@ -74,7 +74,7 @@ servicio.
 
 | ID | Requerimiento |
 |---|---|
-| RF-21 | Eliminar un ticket puntual, o todos los finalizados de una vez escribiendo `ELIMINAR` como confirmación. Los tickets abiertos no se borran en el borrado masivo. |
+| RF-21 | Eliminar un ticket puntual, o todos los finalizados de una vez escribiendo `ELIMINAR` como confirmación. Los tickets abiertos no se borran en el borrado masivo. Antes de borrar, el líder puede marcar finalizados para **conservar** (uno a uno o todos los cerrados en el mes en curso). |
 | RF-22 | Crear cuentas de soporte y restablecer su contraseña. No se pueden crear administradores desde la interfaz. |
 | RF-23 | Consultar la bitácora de actividad: quién inició sesión, tomó, cerró, eliminó o repriorizó tickets, y quién gestionó cuentas. |
 | RF-24 | Cada usuario autenticado puede cambiar su nombre visible ("Atendido por"). |

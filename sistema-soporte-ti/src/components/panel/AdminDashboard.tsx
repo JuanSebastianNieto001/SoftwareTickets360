@@ -43,6 +43,15 @@ type Contadores = { PENDIENTE: number; EN_PROCESO: number; CERRADO: number };
 
 const CONTADORES_VACIOS: Contadores = { PENDIENTE: 0, EN_PROCESO: 0, CERRADO: 0 };
 
+/** "2026-10" en hora de Colombia. En Vercel el reloj corre en UTC, y el mes cambia 5 h antes. */
+function mesBogota(fecha: Date): string {
+  return fecha.toLocaleDateString("en-CA", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+  });
+}
+
 /** Lo que trae el listado. Sin `solucion`: esa llega en TicketDetalle. */
 type Ticket = {
   id: string;
@@ -116,6 +125,10 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
   // polling volvia a pintar la lista, hasta 20 s tarde.
   const [ahora, setAhora] = useState(() => Date.now());
   const [procesando, setProcesando] = useState<string | null>(null);
+  // Finalizados que el lider de TI marco para que el borrado masivo NO los
+  // toque (por ejemplo, los cerrados en el mes que acaba de empezar). Son
+  // ids: sobreviven a los refrescos y al cambio de pestana.
+  const [conservar, setConservar] = useState<Set<string>>(() => new Set());
   const primeraCargaHecha = useRef(false);
 
   const cargar = useCallback(async () => {
@@ -368,6 +381,14 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
     try {
       const res = await fetch(`/api/admin/tickets/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
+      // Si estaba marcado para conservar, la marca ya no tiene a que apuntar
+      // y descuadraria el conteo del boton de borrado masivo.
+      setConservar((previo) => {
+        if (!previo.has(id)) return previo;
+        const siguiente = new Set(previo);
+        siguiente.delete(id);
+        return siguiente;
+      });
       await cargar();
     } catch {
       setError(`No se pudo eliminar el ticket ${codigo}.`);
@@ -382,10 +403,22 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
   // exige el mismo texto como query param, asi que la confirmacion esta en
   // cliente y servidor, no es solo cosmetica.
   async function borrarFinalizados() {
-    const cantidad = contadores.CERRADO;
-    const cuantos = cantidad === 1 ? "1 ticket finalizado" : `los ${cantidad} tickets finalizados`;
+    const cantidad = aBorrar;
+    const cuantos =
+      cantidad === 1
+        ? "1 ticket finalizado"
+        : conservar.size > 0
+          ? `${cantidad} tickets finalizados`
+          : `los ${cantidad} tickets finalizados`;
+    const salvados =
+      conservar.size === 0
+        ? ""
+        : conservar.size === 1
+          ? `Se conserva 1 ticket marcado.\n`
+          : `Se conservan ${conservar.size} tickets marcados.\n`;
     const escrito = window.prompt(
       `Esto elimina de forma permanente ${cuantos}.\n` +
+        salvados +
         `Los tickets abiertos no se tocan.\n\n` +
         `Descarga antes el Excel si necesitas conservarlos.\n\n` +
         `Escribe ELIMINAR para confirmar:`
@@ -394,12 +427,20 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
 
     setProcesando("__vaciar__");
     try {
-      const res = await fetch(`/api/admin/tickets?confirmacion=ELIMINAR`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/tickets?confirmacion=ELIMINAR`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conservar: Array.from(conservar) }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       // Las soluciones cacheadas apuntan a tickets que ya no existen.
       setDetalles({});
       setDetalleAbierto(null);
+      // Las marcas cumplieron su funcion en este vaciado. Si siguieran puestas,
+      // el proximo (ej. el de noviembre) volveria a salvar estos tickets sin
+      // que nadie lo decidiera.
+      setConservar(new Set());
       await cargar();
     } catch {
       setError("No se pudieron borrar los tickets finalizados.");
@@ -416,6 +457,28 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
   const cerradosDentro = cerrados.filter((t) => slaDeCerrado(t).general === "DENTRO");
 
   const ticketsVisibles = soloFueraSla ? cerradosFuera : tickets;
+
+  // Lo que de verdad se va a borrar: todos los finalizados de la base menos
+  // los marcados. Las marcas solo se ponen sobre cerrados que existen, y se
+  // limpian al borrarlos uno a uno, asi que la resta cuadra.
+  const aBorrar = Math.max(0, contadores.CERRADO - conservar.size);
+
+  // Finalizados en pantalla que se cerraron en el mes en curso (hora de
+  // Colombia). Alimenta el atajo "Conservar los cerrados este mes", que es el
+  // caso tipico: vaciar el mes anterior el dia 1 sin perder lo de hoy.
+  const mesActual = mesBogota(new Date(ahora));
+  const cerradosEsteMes = cerrados.filter(
+    (t) => t.fechaCierre && mesBogota(new Date(t.fechaCierre)) === mesActual
+  );
+
+  function alternarConservar(id: string) {
+    setConservar((previo) => {
+      const siguiente = new Set(previo);
+      if (siguiente.has(id)) siguiente.delete(id);
+      else siguiente.add(id);
+      return siguiente;
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -479,18 +542,24 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
         {puedeEliminar && (
           <button
             onClick={borrarFinalizados}
-            disabled={procesando === "__vaciar__" || contadores.CERRADO === 0}
+            disabled={procesando === "__vaciar__" || aBorrar === 0}
             title={
               contadores.CERRADO === 0
                 ? "No hay tickets finalizados para borrar"
-                : "Borra los tickets finalizados; los abiertos no se tocan"
+                : aBorrar === 0
+                  ? "Todos los finalizados estan marcados para conservar"
+                  : conservar.size > 0
+                    ? `Borra los finalizados excepto los ${conservar.size} marcados; los abiertos no se tocan`
+                    : "Borra los tickets finalizados; los abiertos no se tocan"
             }
             className="btn-danger"
           >
             <IconTrash className="h-4 w-4" />
             {procesando === "__vaciar__"
               ? "Borrando..."
-              : `Borrar finalizados (${contadores.CERRADO})`}
+              : conservar.size > 0
+                ? `Borrar finalizados (${aBorrar} · conserva ${conservar.size})`
+                : `Borrar finalizados (${aBorrar})`}
           </button>
         )}
       </div>
@@ -518,6 +587,42 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
               Ver solo los que se pasaron del tiempo
             </label>
           )}
+        </div>
+      )}
+
+      {/* Excepciones del borrado masivo. Solo el lider de TI (que es quien
+          puede borrar) y solo en Finalizados, que es donde estan los tickets
+          que se pueden marcar. */}
+      {puedeEliminar && filtro === "CERRADO" && cerrados.length > 0 && (
+        <div className="card flex flex-wrap items-center gap-x-4 gap-y-2 p-4 text-sm">
+          <span className="text-slate-600">
+            {conservar.size === 0
+              ? "Marca \"Conservar\" en los tickets que el borrado masivo no debe eliminar."
+              : conservar.size === 1
+                ? "1 ticket marcado para conservar."
+                : `${conservar.size} tickets marcados para conservar.`}
+          </span>
+          <div className="ml-auto flex flex-wrap gap-2">
+            {cerradosEsteMes.length > 0 && (
+              <button
+                className="btn-secondary"
+                onClick={() =>
+                  setConservar((previo) => {
+                    const siguiente = new Set(previo);
+                    for (const t of cerradosEsteMes) siguiente.add(t.id);
+                    return siguiente;
+                  })
+                }
+              >
+                Conservar los cerrados este mes ({cerradosEsteMes.length})
+              </button>
+            )}
+            {conservar.size > 0 && (
+              <button className="btn-secondary" onClick={() => setConservar(new Set())}>
+                Quitar marcas
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -607,6 +712,24 @@ export default function AdminDashboard({ puedeEliminar = false }: { puedeElimina
                     >
                       {ticketAbierto === t.id ? "Cancelar" : "Cerrar ticket"}
                     </button>
+                  )}
+                  {puedeEliminar && t.estado === "CERRADO" && (
+                    <label
+                      className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 text-xs font-medium transition-colors ${
+                        conservar.has(t.id)
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                          : "border-slate-200 text-slate-500 hover:border-slate-300"
+                      }`}
+                      title="El borrado masivo no eliminara este ticket"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={conservar.has(t.id)}
+                        onChange={() => alternarConservar(t.id)}
+                        className="h-4 w-4 rounded border-slate-300"
+                      />
+                      Conservar
+                    </label>
                   )}
                   {t.estado === "CERRADO" && (
                     <button className="btn-secondary" onClick={() => alternarDetalle(t.id)}>

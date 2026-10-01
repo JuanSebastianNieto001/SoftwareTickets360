@@ -73,6 +73,7 @@ anotar observaciones. Se recomienda usar tickets de prueba con el nombre
 | CP-29 | Exportar | Pulsar Exportar finalizados | Descarga `.xlsx` con los cerrados y columnas de SLA | |
 | CP-30 | Filtro de incumplidos | En Finalizados, marcar "Ver solo los que se pasaron del tiempo" | Solo tickets Fuera | |
 | CP-31 | Borrado masivo | Líder: Borrar finalizados, escribir `ELIMINAR` | Se borran solo los cerrados; los abiertos siguen | |
+| CP-31b | Borrado con excepciones | Líder: en Finalizados marcar Conservar en 2 tickets (o usar "Conservar los cerrados este mes"), luego Borrar finalizados | El botón descuenta los marcados; se borran todos los cerrados menos esos | |
 | CP-32 | Crear cuenta | Líder: crear cuenta con contraseña de 6 caracteres | Rechaza por mínimo 8; con 8 la crea con perfil soporte | |
 | CP-33 | Restablecer contraseña | Líder: restablecer y entrar con la nueva | Ingreso correcto | |
 | CP-34 | Bitácora | Revisar Registro de actividad tras los casos anteriores | Aparecen inicios de sesión, inicios, cierres, borrados y cuentas | |

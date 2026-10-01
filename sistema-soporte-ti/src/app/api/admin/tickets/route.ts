@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { esAdmin, obtenerSesionActual } from "@/lib/auth";
+import { borrarFinalizadosSchema } from "@/lib/validation";
 import { ACCIONES, registrar } from "@/lib/registro";
 import { ORDEN_PRIORIDAD } from "@/lib/ticket";
 
@@ -137,6 +138,11 @@ export async function GET(request: NextRequest) {
 // FINALIZADOS. Exige el parametro de confirmacion exacto para evitar
 // borrados accidentales.
 //
+// Cuerpo opcional: { "conservar": ["id1", "id2"] }. Esos finalizados se
+// salvan del borrado. Existe porque el vaciado se hace por periodos (por
+// ejemplo, los de septiembre el 1 de octubre) y los que se cerraron en el
+// periodo nuevo no deberian irse con los viejos.
+//
 // A proposito no borra los tickets abiertos: son trabajo pendiente y ademas
 // no salen en el Excel (que exporta solo finalizados), asi que borrarlos
 // aqui los haria desaparecer sin ningun respaldo. Para eliminar uno abierto
@@ -161,16 +167,45 @@ export async function DELETE(request: NextRequest) {
     );
   }
 
-  const resultado = await prisma.ticket.deleteMany({ where: { estado: "CERRADO" } });
+  // Sin cuerpo (o vacio) se borran todos los finalizados, como antes.
+  let conservar: string[] = [];
+  const texto = await request.text();
+  if (texto.trim()) {
+    const parsed = borrarFinalizadosSchema.safeParse(safeJson(texto));
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.errors[0]?.message ?? "Lista de tickets a conservar invalida" },
+        { status: 400 }
+      );
+    }
+    conservar = parsed.data.conservar;
+  }
+
+  const resultado = await prisma.ticket.deleteMany({
+    where: {
+      estado: "CERRADO",
+      ...(conservar.length > 0 ? { id: { notIn: conservar } } : {}),
+    },
+  });
 
   await registrar(
     sesion,
     ACCIONES.TICKETS_ELIMINADOS,
-    `Borrado masivo: elimino ${resultado.count} tickets finalizados`
+    `Borrado masivo: elimino ${resultado.count} tickets finalizados` +
+      (conservar.length > 0 ? ` y conservo ${conservar.length} marcados a mano` : "")
   );
 
   return NextResponse.json({
     eliminados: resultado.count,
     mensaje: `Se eliminaron ${resultado.count} tickets finalizados.`,
   });
+}
+
+/** JSON.parse que devuelve undefined en vez de lanzar, para que Zod responda el 400. */
+function safeJson(texto: string): unknown {
+  try {
+    return JSON.parse(texto);
+  } catch {
+    return undefined;
+  }
 }
