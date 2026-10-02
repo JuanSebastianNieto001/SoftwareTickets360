@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { esAdmin, obtenerSesionActual } from "@/lib/auth";
+import { esAdmin, obtenerSesionAdministrador } from "@/lib/auth";
 import { borrarFinalizadosSchema } from "@/lib/validation";
 import { ACCIONES, registrar } from "@/lib/registro";
 import { ORDEN_PRIORIDAD } from "@/lib/ticket";
@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   // Solo el lider de TI. Es la operacion mas destructiva del sistema, y el
   // middleware solo comprueba que haya sesion: el rol se verifica aqui.
-  const sesion = await obtenerSesionActual();
+  const sesion = await obtenerSesionAdministrador();
   if (!esAdmin(sesion)) {
     return NextResponse.json(
       { error: "Solo el administrador puede borrar tickets" },

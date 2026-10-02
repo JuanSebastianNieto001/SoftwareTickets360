@@ -3,6 +3,13 @@
 Registro de los cambios del sistema, construido a partir del historial de
 versiones del repositorio (`git log`). Las fechas corresponden a los commits.
 
+## [1.2.1] — 2026-10-02
+
+### Corregido
+- El panel de soporte ya no muestra ni permite borrar tickets, gestionar cuentas
+  ni ver la bitácora, aunque se entre con una cuenta de administrador. El
+  servidor exige que esas acciones vengan del panel del líder.
+
 ## [1.2.0] — 2026-10-01
 
 ### Corregido

@@ -125,3 +125,21 @@ export async function obtenerSesionActual(panel?: Panel): Promise<SesionPayload 
   if (elegido) return leerCookie(elegido);
   return (await leerCookie("soporte")) ?? (await leerCookie("admin"));
 }
+
+/**
+ * Sesion para las acciones exclusivas del lider de TI: borrar tickets,
+ * gestionar cuentas, leer la bitacora y la limpieza.
+ *
+ * Exige DOS cosas: que la peticion venga del panel del lider (cabecera
+ * x-panel: admin) y que la sesion de ese panel sea de rol ADMIN. No basta el
+ * rol: el panel de soporte nunca borra, aunque quien haya entrado ahi sea una
+ * cuenta de administrador. Asi las dos pestanas tienen permisos distintos de
+ * verdad, y no depende de que la interfaz esconda los botones.
+ *
+ * Devuelve null si no se cumple; la ruta responde 403.
+ */
+export async function obtenerSesionAdministrador(): Promise<SesionPayload | null> {
+  if ((await panelDeLaPeticion()) !== "admin") return null;
+  const sesion = await leerCookie("admin");
+  return esAdmin(sesion) ? sesion : null;
+}

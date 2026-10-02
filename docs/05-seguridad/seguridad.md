@@ -32,8 +32,11 @@ La verificación ocurre en dos capas:
 1. **`src/middleware.ts`** — exige sesión válida en `/soporte`, `/admin` y
    `/api/admin/*`, y rol `ADMIN` en `/admin`. Un soporte que entra a `/admin` es
    devuelto a `/soporte`.
-2. **Cada ruta de la API** — las acciones exclusivas del administrador vuelven a
-   comprobar el rol y responden 403.
+2. **Cada ruta de la API** — las acciones exclusivas del administrador exigen
+   que la petición venga del **panel del líder** (`x-panel: admin`) con una
+   sesión de rol `ADMIN`; si no, responden 403. El panel de soporte nunca borra
+   ni gestiona cuentas, aunque quien haya entrado ahí sea una cuenta de
+   administrador.
 
 Como las rutas `/api/admin/*` las usan los dos paneles, el navegador indica
 desde cuál llama con la cabecera `x-panel` (o `?panel=` en la descarga del

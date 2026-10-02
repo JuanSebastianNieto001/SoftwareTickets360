@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { esAdmin, obtenerSesionActual } from "@/lib/auth";
+import { esAdmin, obtenerSesionAdministrador } from "@/lib/auth";
 import { ACCIONES, registrar } from "@/lib/registro";
 
 // GET /api/admin/tickets/:id — detalle de un ticket. Protegido por middleware.
@@ -44,7 +44,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 // porque el "estas seguro" ya ocurre en el cliente (window.confirm en
 // AdminDashboard.tsx) antes de disparar la request.
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
-  const sesion = await obtenerSesionActual();
+  const sesion = await obtenerSesionAdministrador();
   if (!esAdmin(sesion)) {
     return NextResponse.json(
       { error: "Solo el administrador puede eliminar tickets" },

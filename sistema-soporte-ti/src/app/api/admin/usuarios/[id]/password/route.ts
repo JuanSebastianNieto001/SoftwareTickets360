@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { esAdmin, hashPassword, obtenerSesionActual } from "@/lib/auth";
+import { esAdmin, hashPassword, obtenerSesionAdministrador } from "@/lib/auth";
 import { ACCIONES, registrar } from "@/lib/registro";
 import { restablecerPasswordSchema } from "@/lib/validation";
 
@@ -10,7 +10,7 @@ import { restablecerPasswordSchema } from "@/lib/validation";
 // No pide la contrasena actual: quien la olvido no puede aportarla, y quien
 // autoriza el cambio es el administrador, no el dueno de la cuenta.
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
-  const sesion = await obtenerSesionActual();
+  const sesion = await obtenerSesionAdministrador();
   if (!esAdmin(sesion)) {
     return NextResponse.json(
       { error: "Solo el administrador puede restablecer contrasenas" },

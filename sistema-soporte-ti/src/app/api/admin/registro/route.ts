@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { esAdmin, obtenerSesionActual } from "@/lib/auth";
+import { esAdmin, obtenerSesionAdministrador } from "@/lib/auth";
 
 // GET /api/admin/registro?limite=100&usuarioId=... — bitacora de actividad.
 //
@@ -14,7 +14,7 @@ const LIMITE_POR_DEFECTO = 100;
 const LIMITE_MAXIMO = 500;
 
 export async function GET(request: NextRequest) {
-  const sesion = await obtenerSesionActual();
+  const sesion = await obtenerSesionAdministrador();
   if (!esAdmin(sesion)) {
     return NextResponse.json(
       { error: "Solo el administrador puede ver la bitacora" },

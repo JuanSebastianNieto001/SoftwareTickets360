@@ -13,8 +13,9 @@ peticiones y respuestas usan JSON, salvo la exportación a Excel.
 - Cabecera `x-panel: admin | soporte`: indica con qué sesión actuar cuando el
   navegador tiene las dos. Sin ella se usa la de soporte. La descarga del Excel
   acepta `?panel=` en su lugar.
-- Algunas rutas son exclusivas del **líder de TI** (rol `ADMIN`); el rol se lee del
-  JWT firmado, no de la petición. Un usuario de soporte recibe **403**.
+- Algunas rutas son exclusivas del **líder de TI**: exigen `x-panel: admin` y la
+  sesión del panel del líder con rol `ADMIN` (leído del JWT firmado). Desde el
+  panel de soporte responden **403**, sea cual sea la cuenta.
 - Los errores tienen la forma `{ "error": "mensaje legible" }`.
 
 | Código | Significado |
@@ -241,4 +242,5 @@ el servidor; `usuarioId` filtra por persona.
 ### `POST /api/admin/limpieza?dias=30` — ADMIN
 
 Borra los tickets cerrados hace más de `dias` días (mínimo 7). No tiene botón en
-la interfaz: está pensado para ejecutarse a mano o desde una tarea programada.
+la interfaz: está pensado para ejecutarse a mano o desde una tarea programada,
+enviando la cookie del panel del líder y la cabecera `x-panel: admin`.

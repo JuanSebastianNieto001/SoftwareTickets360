@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { esAdmin, obtenerSesionActual } from "@/lib/auth";
+import { esAdmin, obtenerSesionAdministrador } from "@/lib/auth";
 import { ACCIONES, registrar } from "@/lib/registro";
 
 // POST /api/admin/limpieza?dias=30
@@ -16,7 +16,7 @@ import { ACCIONES, registrar } from "@/lib/registro";
 export async function POST(request: NextRequest) {
   // Borra tickets, asi que es exclusiva del lider de TI. El middleware solo
   // comprueba que haya sesion; el rol se verifica aqui.
-  const sesion = await obtenerSesionActual();
+  const sesion = await obtenerSesionAdministrador();
   if (!esAdmin(sesion)) {
     return NextResponse.json(
       { error: "Solo el administrador puede borrar tickets" },

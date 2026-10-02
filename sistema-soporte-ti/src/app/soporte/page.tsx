@@ -5,7 +5,7 @@
 // /soporte/login si no hay sesion); esta pagina solo vuelve a leer la sesion
 // para mostrar el nombre en el saludo, por eso `sesion?.nombre` usa un
 // respaldo en vez de asumir que sesion nunca sera null.
-import { esAdmin, obtenerSesionActual } from "@/lib/auth";
+import { obtenerSesionActual } from "@/lib/auth";
 import AdminDashboard from "@/components/panel/AdminDashboard";
 import BotonCerrarSesion from "@/components/panel/BotonCerrarSesion";
 import NombreAdmin from "@/components/panel/NombreAdmin";
@@ -26,9 +26,10 @@ export default async function SoportePage() {
           <NombreAdmin nombreInicial={sesion?.nombre ?? "soporte"} />
         </div>
 
-        {/* Si el lider de TI entra por esta URL conserva sus permisos: el
-            borrado depende del rol, no de la direccion por la que llego. */}
-        <AdminDashboard puedeEliminar={esAdmin(sesion)} />
+        {/* Este panel nunca borra, entre quien entre: borrar es del panel del
+            lider (/admin). El servidor lo exige igual, ver
+            obtenerSesionAdministrador en src/lib/auth.ts. */}
+        <AdminDashboard />
       </main>
     </div>
   );

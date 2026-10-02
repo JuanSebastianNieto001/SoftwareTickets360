@@ -95,6 +95,9 @@ el único que decide si se cumplió el SLA.
 ## 7. Funciones del líder de TI
 
 ### Borrar tickets
+Solo desde el panel del líder (`/admin`). El panel de soporte no muestra estos
+controles aunque se entre con la cuenta del líder.
+
 - **Borrar finalizados (N):** elimina los cerrados. Pide escribir
   `ELIMINAR`. Los abiertos no se tocan. **Exporte antes a Excel**: lo borrado no
   se recupera.

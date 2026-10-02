@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { esAdmin, hashPassword, obtenerSesionActual } from "@/lib/auth";
+import { esAdmin, hashPassword, obtenerSesionAdministrador } from "@/lib/auth";
 import { ACCIONES, registrar } from "@/lib/registro";
 import { crearUsuarioSchema } from "@/lib/validation";
 
@@ -12,7 +12,7 @@ import { crearUsuarioSchema } from "@/lib/validation";
 
 /** 403 si quien llama no es administrador. Devuelve la sesion si si lo es. */
 async function exigirAdmin() {
-  const sesion = await obtenerSesionActual();
+  const sesion = await obtenerSesionAdministrador();
   if (!esAdmin(sesion)) return null;
   return sesion;
 }
